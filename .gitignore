@@ -138,3 +138,13 @@ labtool_webtalk*.log
 *.duruntime
 *.fdepxmr
 .cckTransfer
+
+# Python local artifacts
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local coursework build artifacts
+zynq7020-image-processing/sobel_00_rtl_sim/build/
+zynq7020-image-processing/coursework/evidence/**/*.tmp
+zynq7020-image-processing/coursework/evidence/**/*.bak
