@@ -1,0 +1,34 @@
+Experiment: 01 HDMI fixed pattern
+Date: 2026-06-15
+Branch: exp/01-hdmi-pattern
+Remote build baseline: fab4bce33a8382f8620659d42599c479fa3fadb6
+Tool: Vivado/XSim 2023.2
+Part: xc7z020clg400-2
+
+Simulation:
+  HDMI pattern timing simulation passed
+  EXP01_SIM=passed
+  Active RGB pixels per frame: 9216
+
+Implementation:
+  Route completed successfully
+  WNS: 7.969 ns
+  TNS: 0.000 ns
+  WHS: 0.070 ns
+  THS: 0.000 ns
+
+Resources:
+  LUT: 205
+  FF: 177
+  BRAM tiles: 12
+  MMCM: 1
+  OSERDES: 8
+
+DRC and bitstream:
+  Errors: 0
+  Warnings: 1 (ZPS7-1, expected for this PL-only experiment)
+  Bitgen completed successfully
+  EXP01_BUILD=passed
+
+Hardware/JTAG/HDMI:
+  Not run remotely. Pending onsite validation.

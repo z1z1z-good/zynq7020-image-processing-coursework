@@ -11,9 +11,9 @@
 | 正式 Git 工作树 | 已建立 |
 | 教师仓库远端 `upstream` | 已配置 |
 | 个人私有远端 `origin` | 已配置并完成首次推送 |
-| Vivado / Vitis | 2023.2，待在 Git 分支中验证旧工程迁移 |
+| Vivado / Vitis | Vivado 2023.2 已完成实验 1 隔离构建；Vitis 本实验不适用 |
 | Python 上位机环境 | Python 3.11，基础依赖已验证 |
-| 实验 0 至实验 5 | 实验 0 默认 RTL 仿真已通过；实验 1 至实验 5 尚未验证 |
+| 实验 0 至实验 5 | 实验 0 已通过；实验 1 远程构建通过、待现场 HDMI 验证；实验 2 至实验 5 尚未验证 |
 | 开发板实机测试 | 等待板卡和连接条件 |
 
 源码存在不等于实验已经通过。只有实际运行并保存证据后，才更新实验状态。
@@ -34,7 +34,7 @@
 | 里程碑         | 内容                            | 当前状态                        |
 | ----------- | ----------------------------- | --------------------------- |
 | `exp00`     | RTL 仿真、输入输出图与关键波形             | 默认仿真通过（ModelSim SE-64 10.5） |
-| `exp01`     | HDMI 固定图片                     | 未开始                         |
+| `exp01`     | HDMI 固定图片                     | XSim、实现和 bitstream 通过；待现场上板 |
 | `exp02`     | 固定图片 Sobel                    | 未开始                         |
 | `exp03`     | PC UART -> PS -> BRAM -> HDMI | 未开始                         |
 | `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 未开始                         |
@@ -127,4 +127,20 @@ git log --oneline --left-right main...upstream/main
    [`evidence/01_rtl_sim`](evidence/01_rtl_sim/README.md)。
 6. 原始 VCD 约 127 MB，保留在忽略的 `build/` 目录中，不提交大型生成物。
 
-本里程碑只确认实验 0 默认仿真；更换输入图的小扩展和实验 1 均未开始。
+以上里程碑只确认实验 0 默认仿真；实验 1 的独立状态见下一节。
+
+## 实验 1 远程开发结果
+
+2026-06-15 在 `exp/01-hdmi-pattern` 完成远程开发阶段：
+
+1. 从已合并实验 0 的 `main` 创建分支，未修改实验 2 及后续实验。
+2. 使用 Vivado 2023.2 XSim 验证 HDMI 时序、`9216` 个 ROM 像素及 RGB 映射。
+3. 使用隔离 Tcl 工程编译归档的 `video_clock` 和 `rgb2dvi` 源码，未覆盖 2017.4 XPR。
+4. 综合、布局布线和 bitstream 生成通过；WNS `7.969 ns`、TNS `0 ns`。
+5. DRC 为 0 error、1 warning；`ZPS7-1` 来自本实验纯 PL 设计未实例化 PS7。
+6. 资源占用为 205 LUT、177 FF、12 BRAM、1 MMCM 和 8 OSERDES。
+7. 远程构建基线提交为 `fab4bce33a8382f8620659d42599c479fa3fadb6`。
+
+现场下载、HDMI 验收和回传清单见
+[`sobel_01_hdmi_pattern/README.md`](../sobel_01_hdmi_pattern/README.md) 的“远程开发结果与现场上板流程”。
+在收到真实 HDMI 照片和现场日志前，实验 1 不标记为“上板通过”。
