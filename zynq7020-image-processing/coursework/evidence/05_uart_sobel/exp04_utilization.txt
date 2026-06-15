@@ -197,5 +197,3 @@ Warning! LUT value is adjusted to account for LUT combining.
 +----------+------+
 | Ref Name | Used |
 +----------+------+
-
-

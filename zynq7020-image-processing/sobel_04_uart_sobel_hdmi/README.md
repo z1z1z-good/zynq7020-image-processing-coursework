@@ -552,4 +552,3 @@ python camera_uart_sender.py --port COM7 --baud 115200 --camera 0 --fps 0.2 --pr
 - 若做了阈值或边缘颜色对比：各参数下的 HDMI 照片。
 - 现场 utilization、timing summary 与 DRC 摘要。
 - 若失败：失败步骤、完整错误文本和最后一个正常现象。
-

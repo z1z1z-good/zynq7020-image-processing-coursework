@@ -5857,8 +5857,3 @@ Slack:                    inf
                          net (fo=1, routed)           1.367    -0.976    hdmi_pl_top_i/video_clock_m0/inst/clkfbout_buf_video_clock
     MMCME2_ADV_X1Y1      MMCME2_ADV                                   r  hdmi_pl_top_i/video_clock_m0/inst/mmcm_adv_inst/CLKFBIN
   -------------------------------------------------------------------    -------------------
-
-
-
-
-

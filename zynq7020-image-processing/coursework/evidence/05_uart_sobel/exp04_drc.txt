@@ -138,5 +138,3 @@ REQP-1839#20 Warning
 RAMB36 async control check
 The RAMB36E1 hdmi_pl_top_i/hdmi_bram_sobel_display_m0/edge_mem_reg_3 has an input control pin hdmi_pl_top_i/hdmi_bram_sobel_display_m0/edge_mem_reg_3/ADDRARDADDR[14] (net: hdmi_pl_top_i/hdmi_bram_sobel_display_m0/edge_y[6]) which is driven by a register (hdmi_pl_top_i/hdmi_bram_sobel_display_m0/u_sobel_core/edge_y_reg[6]) that has an active asychronous set or reset. This may cause corruption of the memory contents and/or read values when the set/reset is asserted and is not analyzed by the default static timing analysis. It is suggested to eliminate the use of a set/reset to registers driving this RAMB pin or else use a synchronous reset in which the assertion of the reset is timed by default.
 Related violations: <none>
-
-
