@@ -1,0 +1,32 @@
+实验 3 PL 显示链路 XSim 仿真结果
+
+日期：2026-06-15
+分支：exp/03-uart-hdmi
+工具：Vivado/XSim 2023.2
+器件：xc7z020clg400-2
+顶层：hdmi_bram_display_tb（缩小时序 256 x 144、放大 2 x 2 以加快仿真）
+
+结果：XSim 输出 "HDMI BRAM display simulation passed"，0 errors，
+成功路径 $finish 于 402865 ns（第二个 VS 帧完成后）。
+
+行为级 framebuffer 由 tools/generate_exp03_expected.py 生成的 expected_frame.hex 预载
+（与协议往返自检同一份数据），端口 B 采用 1 拍同步读模拟 blk_mem_gen READ_FIRST。
+
+自检覆盖：
+- HDMI 有效像素数 = H_ACTIVE x V_ACTIVE
+- HS 周期数 = H_SYNC x V_TOTAL，VS 周期数 = V_SYNC x H_TOTAL
+- 边框像素数 = 外圈 BORDER_WIDTH 像素总数，且边框区 RGB == BORDER_COLOR (24'h0066ff)
+- 非边框有效像素 == framebuffer[10x 缩放地址]，验证 BRAM 读地址、10x 放大，
+  以及 addr / pixel / de 三级读延迟流水线对齐（无 1 拍偏差）
+
+复现（Vivado GUI 或 PowerShell）：
+  & D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -source run_exp03_sim.tcl
+  脚本先运行 generate_exp03_expected.py 生成 expected_frame.hex，再 launch_simulation
+  并检查 test_done / test_passed。
+
+注：在 Git-Bash 下 launch_simulation 派生 compile.bat 子进程会报
+"Spawn failed: Broken pipe"（MSYS 派生 Windows 批处理的已知限制，与 RTL 无关）。
+该 shell 下用等价的直接流程验证并通过：
+  xvlog sobel_03_uart_hdmi.srcs/sources_1/new/hdmi_bram_display.v sim/hdmi_bram_display_tb.v
+  xelab hdmi_bram_display_tb -s exp03_tb -timescale 1ns/1ps
+  xsim exp03_tb -runall
