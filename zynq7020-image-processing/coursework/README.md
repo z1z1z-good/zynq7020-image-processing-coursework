@@ -32,6 +32,9 @@
 开发板暂不可用时，实验 1 至实验 5 的可执行范围、分批顺序、交付物和现场门禁见
 [无板开发分批计划](docs/BOARDLESS_DEVELOPMENT_PLAN.md)。
 
+「上位机 → PS → BRAM → PL → HDMI」无板卡软硬件协同仿真的可复用流程（实验 3 建立，
+实验 4、实验 5 应复用）见 [无板卡协同仿真方法论](docs/BOARDLESS_COSIM_METHODOLOGY.md)。
+
 ## 实验路线
 
 | 里程碑         | 内容                            | 当前状态                        |
