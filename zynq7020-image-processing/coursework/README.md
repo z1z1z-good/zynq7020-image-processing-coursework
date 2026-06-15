@@ -11,9 +11,9 @@
 | 正式 Git 工作树 | 已建立 |
 | 教师仓库远端 `upstream` | 已配置 |
 | 个人私有远端 `origin` | 已配置并完成首次推送 |
-| Vivado / Vitis | Vivado 2023.2 已完成实验 1 隔离构建；Vitis 本实验不适用 |
+| Vivado / Vitis | Vivado 2023.2 已完成实验 1、实验 2 隔离构建；Vitis 当前实验不适用 |
 | Python 上位机环境 | Python 3.11，基础依赖已验证 |
-| 实验 0 至实验 5 | 实验 0 已通过；实验 1 远程构建通过、待现场 HDMI 验证；实验 2 至实验 5 尚未验证 |
+| 实验 0 至实验 5 | 实验 0 已通过；实验 1、实验 2 远程构建通过、待现场 HDMI 验证；实验 3 至实验 5 尚未验证 |
 | 开发板实机测试 | 等待板卡和连接条件 |
 
 源码存在不等于实验已经通过。只有实际运行并保存证据后，才更新实验状态。
@@ -149,3 +149,26 @@ git log --oneline --left-right main...upstream/main
 现场下载、HDMI 验收和回传清单见
 [`sobel_01_hdmi_pattern/README.md`](../sobel_01_hdmi_pattern/README.md) 的“远程开发结果与现场上板流程”。
 在收到真实 HDMI 照片和现场日志前，实验 1 不标记为“上板通过”。
+
+## 实验 2 远程开发结果
+
+2026-06-15 在 `exp/02-hdmi-sobel` 完成远程开发阶段：
+
+1. 使用 Vivado 2023.2 XSim 完成灰度转换、Sobel 计算、二值化和 HDMI 输出的全链路仿真。
+2. 仿真检查 `9216` 个灰度样本和 `9216` 次 Sobel 写入，每个地址恰好写入一次；
+   `edge_frame_done` 仅产生一次脉冲。
+3. 默认阈值为 `80`；阈值 `40`、`80`、`120` 对应的白色源像素数分别为
+   `1307`、`1274`、`1234`，满足阈值升高时白色像素数单调不增加。
+4. HDMI 输出分辨率为 `1280 x 720`，每个 `128 x 72` 源像素映射为一个
+   `10 x 10` 像素块。
+5. Synthesis、Placement、Routing 和 Bitstream 生成通过；WNS `1.578 ns`、
+   TNS `0.000 ns`、WHS `0.080 ns`、THS `0.000 ns`。
+6. 资源占用为 2842 LUT、2353 FF、14 BRAM36、0 DSP、1 MMCM 和 8 OSERDES。
+7. DRC 为 0 errors、1 warning；`ZPS7-1` 来自纯 PL HDMI 设计未实例化 PS7，
+   不影响 Bitstream 生成。
+8. 远程验证基线提交为 `25ed3d9b13e821dfa7e38786372ff61fc6e97230`；
+   中文报告更新提交为 `f8eb6a590748faea51bafa7eb3322ea85a998457`。
+
+仿真、阈值对比、资源、时序和 DRC 证据见
+[`evidence/03_hdmi_sobel`](evidence/03_hdmi_sobel/README.md)。
+在收到真实 HDMI 照片、Hardware Manager 记录和现场日志前，实验 2 不标记为“上板通过”。
