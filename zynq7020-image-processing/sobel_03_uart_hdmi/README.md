@@ -288,10 +288,10 @@ conda --version
 
 ### 6.2 创建 fpga 虚拟环境
 
-本实验指定 Python 版本为 `3.13`：
+本实验指定 Python 版本为 `3.11`：
 
 ```bash
-conda create -n fpga python=3.13 -y
+conda create -n fpga python=3.11 -y
 conda activate fpga
 ```
 
@@ -445,9 +445,9 @@ python camera_uart_sender.py --port COM7 --baud 115200 --camera 0 --fps 0.2 --pr
 5. 观察 HDMI 显示器。
 6. 显示器应能看到 PC 摄像头图像，只是刷新比较慢。
 
-## 10. 当前实验现象
+## 10. 原始说明中的预期现象
 
-当前实测现象：
+以下为原始工程描述的预期上板现象。本分支尚未取得现场硬件证据，不能作为当前实测结论：
 
 ```text
 串口能输出启动信息
@@ -456,7 +456,7 @@ python camera_uart_sender.py --port COM7 --baud 115200 --camera 0 --fps 0.2 --pr
 PC 发送脚本运行后，HDMI 画面能更新
 ```
 
-这是当前保持的工作状态。
+现场复核前，上述内容仅用于说明预期行为。
 
 ## 11. 帧率说明
 
@@ -590,7 +590,7 @@ frame error -7
 - 基线：从与 `origin/main` 一致的 `main` 创建（含实验 0、实验 1 成果）
 - 工具：Vivado / XSim 2023.2，Vitis 2023.2
 - 器件：`xc7z020clg400-2`
-- 状态：远程仿真、综合、实现、时序、DRC、bitstream，以及上位机协议自检和 PS 源码编译检查通过；真实 JTAG / UART / HDMI 待现场验证
+- 状态：远程仿真、综合、实现、时序、DRC、bitstream，以及协议黄金模型自检和 PS 源码静态编译检查通过；正式 Vitis/BSP/ELF 构建及真实 JTAG / UART / HDMI 待完成
 - 默认显示边框：`BORDER_WIDTH = 20`，`BORDER_COLOR = 24'h0066ff`
 
 获取现场实际测试的提交号：
@@ -613,8 +613,8 @@ PC 图像 -> UART(0x55AA 帧头 + 0x33CC 行头 + 128x72 RGB888)
 
 远程阶段已确认：
 
-1. 上位机帧编码与 PS `receive_frame` 往返无损（`9216` 像素逐像素一致），错误注入返回码
-   `-1/-2/-3/-5/-7` 与 `main.c` 一致（`tools/generate_exp03_expected.py`）。
+1. 协议黄金模型编码与 PS `receive_frame` 解析往返无损（`9216` 像素逐像素一致），错误注入返回码
+   `-1/-2/-3/-5/-7` 与 `main.c` 一致（`tools/generate_exp03_expected.py`）；该项未直接调用上位机发送脚本。
 2. XSim 验证 HDMI 时序、有效像素数、HS/VS、10x 缩放地址、读延迟流水线对齐和边框映射
    （`sim/hdmi_bram_display_tb.v`）。
 3. Vivado 综合/实现/时序/DRC/bitstream 通过：WNS `8.173 ns`、TNS `0`、DRC `0` violations、
@@ -647,11 +647,11 @@ build/vivado_2023_2/ps_uart_bram_hdmi.xsa
 $env:EXP03_PYTHON = "C:\path\to\python.exe"
 ```
 
-注（自动化无头环境）：若 `launch_simulation` 报 “Spawn failed” 或 XSCT 报
-“Timeout while establishing a connection with Vitis”，是该环境无法派生 Vivado/Vitis
-子进程所致，与设计无关；可改用直接流程验证：`xvlog`/`xelab`/`xsim` 跑仿真，
-`arm-none-eabi-gcc -c` 检查 PS 源码（见 `tools/ps_syntax_check/` 与
-`../coursework/evidence/04_uart_hdmi/`）。
+本次自动化环境中，XSCT 在创建 Vitis 平台时报告
+“Timeout while establishing a connection with Vitis”，根因尚未确认。直接
+`xvlog`/`xelab`/`xsim` 仿真和 `arm-none-eabi-gcc -c` 源码检查可提供部分证据
+（见 `tools/ps_syntax_check/` 与 `../coursework/evidence/04_uart_hdmi/`），
+但不能替代正式 Vitis 平台、BSP、应用和 ELF 构建。
 
 ### 14.4 硬件与接线
 
