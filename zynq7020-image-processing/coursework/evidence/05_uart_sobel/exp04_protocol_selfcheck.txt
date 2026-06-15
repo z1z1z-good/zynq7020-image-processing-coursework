@@ -1,0 +1,18 @@
+实验 4 UART -> PS -> BRAM -> PL Sobel 协议与算法离线自检
+图像尺寸：128 x 72（9216 像素，RGB888，format=0x18）
+帧头 0x55aa，行头 0x33cc
+
+往返无损检查：通过（解析重建的 framebuffer 与源图逐像素一致）
+
+错误注入检查（错误码须与 main.c 一致）：
+  wrong_width          expected= -1 got= -1
+  wrong_format         expected= -1 got= -1
+  wrong_row            expected= -2 got= -2
+  trunc_before_header  expected= -3 got= -3
+  trunc_after_header   expected= -5 got= -5
+  trunc_mid_pixels     expected= -7 got= -7
+
+灰度公式：gray = (77*R + 150*G + 29*B) >> 8（与 rgb_to_gray.v 一致）
+Sobel：mag = |gx| + |gy| 饱和到 255，四周 1 像素边界置 0（与 sobel_core.v 一致）
+HDMI 输出：1280 x 720，每源像素放大 10 x 10
+默认显示阈值：EDGE_THRESHOLD=80

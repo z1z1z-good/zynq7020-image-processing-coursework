@@ -1,0 +1,10 @@
+实验 4 PL Sobel 彩色边缘标记阈值统计
+图像尺寸：128 x 72（9216 个源像素）
+边缘颜色：EDGE_COLOR=#00ff00
+比较规则：edge_pixel >= threshold 标记为彩色，否则黑色
+
+threshold= 40 edge_pixels=1139
+threshold= 80 edge_pixels=1109
+threshold=120 edge_pixels=1093
+
+边缘像素数随阈值升高单调不增加检查：通过
