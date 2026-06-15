@@ -23,6 +23,11 @@ parameter V_FP     = 16'd5;
 parameter V_SYNC   = 16'd5;
 parameter V_BP     = 16'd20;
 
+// 基础扩展：可配置单色图像边框（仅改显示映射，不影响 BRAM 读取数据）。
+// BORDER_WIDTH 为 0 时关闭边框，输出与原始 BRAM 图像一致。
+parameter [11:0] BORDER_WIDTH = 12'd20;
+parameter [23:0] BORDER_COLOR = 24'h0066ff;
+
 localparam H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP;
 localparam V_TOTAL = V_ACTIVE + V_FP + V_SYNC + V_BP;
 localparam H_START = H_FP + H_SYNC + H_BP;
@@ -45,6 +50,9 @@ reg vs_reg_d1;
 reg de_reg_d1;
 reg [31:0] bram_addr_reg;
 reg [23:0] pixel_reg;
+reg in_border_reg;
+reg in_border_d0;
+reg in_border_d1;
 
 wire h_active;
 wire v_active;
@@ -56,6 +64,7 @@ wire [11:0] active_y;
 wire [6:0] image_x;
 wire [6:0] image_y;
 wire [13:0] image_word_addr;
+wire in_border;
 
 assign h_active = (h_cnt >= H_START[11:0]) && (h_cnt < (H_START + H_ACTIVE));
 assign v_active = (v_cnt >= V_START[11:0]) && (v_cnt < (V_START + V_ACTIVE));
@@ -70,12 +79,19 @@ assign image_x = active_x / SCALE_X;
 assign image_y = active_y / SCALE_Y;
 assign image_word_addr = {image_y, 7'b0} + {7'd0, image_x};
 
+// 当前有效像素是否落在外圈边框区域（坐标与地址生成同周期，随后同样延迟 3 拍对齐输出）。
+assign in_border = (BORDER_WIDTH != 12'd0) &&
+                   ((active_x < BORDER_WIDTH) ||
+                    (active_x >= (H_ACTIVE - BORDER_WIDTH)) ||
+                    (active_y < BORDER_WIDTH) ||
+                    (active_y >= (V_ACTIVE - BORDER_WIDTH)));
+
 assign hs = hs_reg_d1;
 assign vs = vs_reg_d1;
 assign de = de_reg_d1;
-assign rgb_r = de_reg_d1 ? pixel_reg[23:16] : 8'h00;
-assign rgb_g = de_reg_d1 ? pixel_reg[15:8]  : 8'h00;
-assign rgb_b = de_reg_d1 ? pixel_reg[7:0]   : 8'h00;
+assign rgb_r = de_reg_d1 ? (in_border_d1 ? BORDER_COLOR[23:16] : pixel_reg[23:16]) : 8'h00;
+assign rgb_g = de_reg_d1 ? (in_border_d1 ? BORDER_COLOR[15:8]  : pixel_reg[15:8])  : 8'h00;
+assign rgb_b = de_reg_d1 ? (in_border_d1 ? BORDER_COLOR[7:0]   : pixel_reg[7:0])   : 8'h00;
 
 assign bram_we = 4'b0000;
 assign bram_din = 32'd0;
@@ -117,6 +133,9 @@ always @(posedge clk) begin
         bram_en <= 1'b0;
         bram_addr_reg <= 32'd0;
         pixel_reg <= 24'd0;
+        in_border_reg <= 1'b0;
+        in_border_d0 <= 1'b0;
+        in_border_d1 <= 1'b0;
     end else begin
         hs_reg <= hsync_now;
         vs_reg <= vsync_now;
@@ -130,6 +149,9 @@ always @(posedge clk) begin
         bram_en <= video_active;
         bram_addr_reg <= video_active ? {16'd0, image_word_addr, 2'b00} : 32'd0;
         pixel_reg <= bram_dout[23:0];
+        in_border_reg <= in_border;
+        in_border_d0 <= in_border_reg;
+        in_border_d1 <= in_border_d0;
     end
 end
 
