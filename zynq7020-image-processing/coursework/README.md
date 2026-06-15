@@ -4,6 +4,8 @@
 
 教师仓库：<https://github.com/zhouxzh/FPGA-course/tree/main/zynq7020-image-processing>
 
+阶段状态与纠察记录见：[阶段评估与纠察（2026-06-15）](docs/STAGE_AUDIT_2026-06-15.md)。
+
 ## 当前状态
 
 | 项目 | 状态 |
