@@ -36,7 +36,7 @@ PC 摄像头 / 图片
 
 ```text
 sobel_03: HDMI 显示串口收到的原始 RGB 图像
-sobel_04: HDMI 显示 PL Sobel 运算后的灰度边缘图
+sobel_04: HDMI 显示 PL Sobel 运算后的边缘图（本分支默认彩色边缘，详见第 11、13 节）
 ```
 
 当前保持已经调通的稳定串口配置：
@@ -128,6 +128,11 @@ B = edge
 ```
 
 最终显示为黑白边缘图。
+
+> 注：以上 `R = G = B = edge` 是教师基线映射。**本分支默认已启用第 11、13 节的「彩色边缘标记」扩展**：
+> `edge_pixel >= EDGE_THRESHOLD`（默认 `8'd80`）输出 `EDGE_COLOR`（默认 `24'h00ff00` 绿），否则输出黑色；
+> `edge_mem` 仍保存原始 8 bit Sobel 强度，BRAM 扫描 / `rgb_to_gray` / `sobel_core` 数据通路不变。
+> 要回到基线黑白边缘，把 `EDGE_COLOR` 设为灰阶或恢复 `R = G = B = edge_pixel` 映射即可。
 
 ## 4. Vivado 使用流程
 
@@ -282,7 +287,7 @@ HDMI 显示测试图经过 PL Sobel 后的边缘图
 HDMI 显示摄像头画面的 Sobel 边缘检测结果
 ```
 
-画面是黑白边缘图，不再是彩色原图。
+画面是 Sobel 边缘图，不再是彩色原图。本分支默认输出黑底**绿色**边缘（第 11、13 节的彩色边缘扩展，默认 `EDGE_THRESHOLD=80`、`EDGE_COLOR=24'h00ff00`）；如需基线黑白灰度边缘，见第 3 节末尾说明。
 
 ## 9. 帧率说明
 
