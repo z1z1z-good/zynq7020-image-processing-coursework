@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module hdmi_image_display(
     input clk,
     input rst,
@@ -75,7 +77,7 @@ image_rom_128x72 u_image_rom_128x72 (
     .data(image_pixel)
 );
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         h_cnt <= 12'd0;
     end else if (h_cnt == H_TOTAL - 1) begin
@@ -85,7 +87,7 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         v_cnt <= 12'd0;
     end else if (h_cnt == H_TOTAL - 1) begin
@@ -97,7 +99,7 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         hs_reg <= 1'b0;
         vs_reg <= 1'b0;

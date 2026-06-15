@@ -8,6 +8,7 @@ module top(
 );
 wire video_clk;
 wire video_clk_5x;
+wire video_locked;
 wire video_hs;
 wire video_vs;
 wire video_de;
@@ -17,7 +18,7 @@ wire[7:0] video_b;
 
 hdmi_image_display hdmi_image_display_m0(
 	.clk(video_clk),
-	.rst(1'b0),
+	.rst(~video_locked),
 	.hs(video_hs),
 	.vs(video_vs),
 	.de(video_de),
@@ -35,7 +36,7 @@ video_clock video_clock_m0
     .clk_out2(video_clk_5x),
       // Status and control signals
     .reset(1'b0),
-    .locked()
+    .locked(video_locked)
  );
  
 rgb2dvi_0 rgb2dvi_m0 (
@@ -46,7 +47,7 @@ rgb2dvi_0 rgb2dvi_m0 (
 	.TMDS_Data_n(TMDS_data_n),
 	.oen(hdmi_oen),
 	//Auxiliary signals 
-	.aRst_n(1'b1), //-asynchronous reset; must be reset when RefClk is not within spec
+	.aRst_n(video_locked), // Keep the serializer reset until both clocks are stable.
 	
 	// Video in
 	.vid_pData({video_r,video_g,video_b}),

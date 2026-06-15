@@ -1,0 +1,59 @@
+set script_dir [file dirname [file normalize [info script]]]
+set build_dir [file join $script_dir build vivado_2023_2]
+set src_dir [file join $script_dir sobel_01_hdmi_pattern.srcs sources_1]
+set rtl_dir [file join $src_dir new]
+set rgb_dir [file join $src_dir ip rgb2dvi_0 src]
+set clk_dir [file join $src_dir ip video_clock]
+set xdc_dir [file join $script_dir sobel_01_hdmi_pattern.srcs constrs_1 new]
+set evidence_dir [file normalize [file join $script_dir .. coursework evidence 02_hdmi_pattern]]
+
+file delete -force $build_dir
+file mkdir $build_dir
+file mkdir $evidence_dir
+create_project -force exp01_build $build_dir -part xc7z020clg400-2
+set_property target_language Verilog [current_project]
+
+read_verilog [file join $rtl_dir hdmi_image_display.v]
+read_verilog [file join $rtl_dir top.v]
+read_verilog [file join $clk_dir video_clock_clk_wiz.v]
+read_verilog [file join $clk_dir video_clock.v]
+
+foreach vhdl_file {
+    DVI_Constants.vhd
+    SyncAsync.vhd
+    SyncAsyncReset.vhd
+    OutputSERDES.vhd
+    TMDS_Encoder.vhd
+    ClockGen.vhd
+    rgb2dvi.vhd
+} {
+    read_vhdl [file join $rgb_dir $vhdl_file]
+}
+read_vhdl [file join $rtl_dir rgb2dvi_0.vhd]
+
+read_xdc [file join $xdc_dir hdmi_out_test.xdc]
+read_xdc [file join $rgb_dir rgb2dvi.xdc]
+
+set_param general.maxThreads 4
+puts "EXP01_STAGE=synthesis"
+synth_design -top top -part xc7z020clg400-2
+report_utilization -file [file join $evidence_dir exp01_utilization.txt]
+
+puts "EXP01_STAGE=implementation"
+opt_design
+place_design
+phys_opt_design
+route_design
+report_timing_summary -delay_type min_max -report_unconstrained \
+    -check_timing_verbose -max_paths 10 \
+    -file [file join $evidence_dir exp01_timing_summary.txt]
+report_drc -file [file join $evidence_dir exp01_drc.txt]
+
+set bit_file [file join $build_dir top.bit]
+puts "EXP01_STAGE=bitstream"
+write_bitstream -force $bit_file
+puts "EXP01_BITSTREAM=$bit_file"
+puts "EXP01_BUILD=passed"
+
+close_project
+exit
