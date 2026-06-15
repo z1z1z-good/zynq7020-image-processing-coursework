@@ -1,26 +1,26 @@
-Experiment 2 remote build summary
-Date: 2026-06-15
-Tool: Vivado 2023.2
-Device: xc7z020clg400-2
+实验 2 远程构建结果摘要
+日期：2026-06-15
+工具：Vivado 2023.2
+器件：xc7z020clg400-2
 
-Command:
+执行命令：
 vivado.bat -mode batch -nojournal -nolog -source run_exp02_bitstream.tcl
 
-Result:
-Synthesis: passed
-Placement: passed
-Routing: passed
-Timing constraints: met
+运行结果：
+Synthesis：通过
+Placement：通过
+Routing：通过
+Timing constraints：满足
 WNS=1.578 ns
 TNS=0.000 ns
 WHS=0.080 ns
 THS=0.000 ns
 DRC errors=0
-DRC warnings=1 (ZPS7-1, expected for pure-PL design)
-Bitstream generation: passed
+DRC warnings=1（ZPS7-1，纯 PL 设计的预期 warning）
+Bitstream 生成：通过
 EXP02_BUILD=passed
 
-Utilization:
+Utilization：
 Slice LUTs=2842
 Slice Registers=2353
 RAMB36E1=14
@@ -28,5 +28,5 @@ DSP=0
 MMCME2_ADV=1
 OSERDESE2=8
 
-Generated but not committed:
+已生成但未提交：
 sobel_02_hdmi_sobel/build/vivado_2023_2/top.bit

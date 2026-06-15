@@ -136,20 +136,20 @@ def main() -> None:
     stats_path.write_text(
         "\n".join(
             [
-                "Experiment 2 fixed-image Sobel threshold statistics",
-                "Image size: 128 x 72 (9216 source pixels)",
-                "Comparison: edge_pixel >= threshold",
+                "实验 2 固定图片 Sobel 阈值统计",
+                "图像尺寸：128 x 72（9216 个源像素）",
+                "比较规则：edge_pixel >= threshold",
                 "",
                 *[
                     f"threshold={threshold:3d} white_pixels={count:4d}"
                     for threshold, count in counts
                 ],
                 "",
-                "Monotonic non-increasing check: passed",
+                "白色像素数单调不增加检查：通过",
                 "",
             ]
         ),
-        encoding="ascii",
+        encoding="utf-8",
     )
 
     print(f"EXP02_GOLDEN_PIXELS={len(edge)}")
