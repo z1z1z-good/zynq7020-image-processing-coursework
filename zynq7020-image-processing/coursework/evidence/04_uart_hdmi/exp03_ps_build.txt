@@ -1,0 +1,41 @@
+实验 3 PS 应用（UART -> PS -> AXI BRAM）编译验证
+
+日期：2026-06-15
+分支：exp/03-uart-hdmi
+PS 源码：ps_uart_bram_app/src/main.c（仓库已维护，本实验未修改）
+
+关键配置（main.c）：
+- 图像 128 x 72，RGB888，format 0x18
+- UART1 波特率 115200
+- framebuffer 基址 0x40000000，像素 0x00RRGGBB
+- 写入地址 = base + ((y * 128 + x) << 2)
+
+== 完整 Vitis 构建（标准方法，需在正常 Vitis 环境运行）==
+脚本：build_exp03_ps_app.tcl
+  & D:\Vivado\Vitis\2023.2\bin\xsct.bat build_exp03_ps_app.tcl
+该脚本由 run_exp03_bitstream.tcl 导出的 ps_uart_bram_hdmi.xsa 创建平台、
+生成 standalone BSP、新建应用并用 main.c 覆盖后 app build 出 .elf。
+
+注意：在当前无头自动化环境中，XSCT 启动 / 连接 Vitis 后端超时
+（"Timeout while establishing a connection with Vitis"），与 Vivado 在本环境
+无法派生子进程（launch_simulation / launch_runs 报 "Spawn failed: Broken pipe"）
+属同一根因。因此完整 BSP 链接构建需由用户在正常 Vitis 2023.2 环境
+（GUI 或 PowerShell）执行；本环境不伪造其结果。
+
+== 源码级编译检查（本环境实测通过）==
+用 Vitis 自带的 ARM 交叉编译器直接编译（单进程，不需要 Vitis 后端）：
+  编译器：arm-none-eabi-gcc 12.2.0
+  命令：arm-none-eabi-gcc -c -Wall -Wextra -mcpu=cortex-a9 \
+           -I tools/ps_syntax_check/include \
+           ps_uart_bram_app/src/main.c -o main.o
+  结果：退出码 0，0 errors、0 warnings，生成 main.o。
+
+该检查使用与真实 XUartPs / Xil_Io / xtime_l API 对齐的最小桩头
+（见 tools/ps_syntax_check/，含 README）。它确认 PS 源码的语法、类型、
+API 调用签名与控制流正确，但不等于真实 BSP 链接构建——真实编译以上面的
+Vitis 流程为准。
+
+== 待正常环境 / 现场完成 ==
+- 在正常 Vitis 2023.2 环境运行 build_exp03_ps_app.tcl，确认 .elf 实际链接生成。
+- 现场下载 top.bit 后运行 .elf，串口 115200 8N1 观察启动信息与帧接收
+  （PS 启动打印 "PS UART BRAM HDMI display" 与 "waiting for frame header"）。
