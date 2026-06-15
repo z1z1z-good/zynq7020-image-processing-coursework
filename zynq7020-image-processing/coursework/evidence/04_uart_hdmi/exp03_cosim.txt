@@ -1,0 +1,36 @@
+实验 3 无板卡软硬件协同仿真（host -> PS -> AXI BRAM -> PL HDMI）
+
+日期：2026-06-15
+分支：exp/03-uart-hdmi
+工具：Python 3.11 + numpy（导入真实上位机打包）、host gcc (MinGW-W64 8.1.0)、Vivado/XSim 2023.2
+一键脚本：tools/cosim/run_exp03_cosim.sh
+中间产物写入可删除重建的 build/cosim/，不提交 Git。
+
+链路与结果（本环境实测，EXP03_COSIM_CHAIN=passed）：
+
+1. 上位机打包一致性
+   导入真实 camera_uart_sender.build_frame_packet（cv2/serial 用空桩绕过，不打开真实
+   串口/摄像头），对同一 128x72 测试图生成 UART 字节流，与本地编码器逐字节比对：
+   EXP03_COSIM_HOST_PACK=match，27943 字节。
+
+2. 真实 PS 解析（不修改源码）
+   ps_protocol_model.c 通过 #include 纳入未修改的 ps_uart_bram_app/src/main.c（仅把其
+   main() 改名），用主机 UART/BRAM/XTime 桩驱动真实 receive_frame() 解析上面的字节流并
+   写出 framebuffer：返回码 0，与 golden（图像 -> 0x00RRGGBB）逐像素一致
+   EXP03_COSIM_FB=match，9216 词。
+
+3. 错误注入（针对真实 C 解析器）
+   wrong_width=-1、wrong_format=-1、wrong_row=-2、trunc_before_header=-3、
+   trunc_after_header=-5、trunc_mid_pixels=-7，全部与 main.c 返回码一致。
+
+4. RTL 全分辨率渲染 + 自动比对
+   hdmi_bram_display_cosim_tb 把第 2 步产出的 fb_from_ps.hex 载入行为 BRAM，按默认
+   1280x720 时序、10x 放大与默认蓝色边框输出，捕获一整帧 921600 个有效像素；重建 PNG
+   与由 golden framebuffer 计算的期望画面逐像素一致 EXP03_COSIM_PNG=match。
+   该重建帧与 exp03_expected_image.png 逐字节相同。
+
+结论：本链在无板卡条件下，端到端核对了真实上位机字节序/帧格式 <-> 真实 PS C 解析 <->
+BRAM 0x00RRGGBB 格式与地址 <-> PL 10x 放大、边框与读延迟流水线的一致性。
+
+本仿真不能替代的现场项：板级时钟/管脚、DDR/MIO、UART 电气链路、JTAG 下载、HDMI 物理
+输出，以及完整 Vitis BSP/ELF 链接构建（见 exp03_ps_build.txt）。

@@ -1,0 +1,2 @@
+# Shell 脚本始终用 LF，避免在 Windows 检出为 CRLF 后 bash 执行报 \r 错误。
+*.sh text eol=lf

@@ -21,12 +21,14 @@
 | `exp03_timing_summary.txt` | Vivado timing summary（WNS/TNS/WHS/THS） |
 | `exp03_drc.txt` | Vivado DRC 报告 |
 | `exp03_ps_build.txt` | PS 程序编译验证（完整 Vitis 脚本 + arm-gcc 源码检查） |
+| `exp03_cosim.txt` | 无板卡软硬件协同仿真：真实上位机打包 → 真实 main.c 解析 → RTL 渲染 → PNG 逐像素比对 |
 
 生成的 `top.bit` / `.xsa` / `.dcp` 保存在已忽略的本地 `build/` 目录，未提交 Git。
 
 ## 关键结果
 
 - 协议黄金模型：`9216` 像素往返无损；错误码 `-1/-2/-3/-5/-7` 与 `main.c` 一致；未直接回归上位机发送脚本。
+- 协同仿真（`exp03_cosim.txt`）：真实 `camera_uart_sender.build_frame_packet` 与本地编码器逐字节一致；真实 `main.c` 解析产出 framebuffer 与 golden 逐像素一致；RTL 渲染 `1280x720` 帧（921600 像素）与期望逐像素一致。仅导入打包函数，未打开真实串口/摄像头。
 - 仿真：`HDMI BRAM display simulation passed`，0 errors。
 - 构建：WNS `8.173 ns`、TNS `0`；`1775` LUT、`1504` FF、`16` BRAM、`0` DSP；DRC `0` violations。
 - PS：`arm-none-eabi-gcc 12.2.0` 静态编译 `main.c`，0 error、0 warning；正式 Vitis/BSP/ELF 构建待完成。

@@ -723,3 +723,36 @@ $env:EXP03_PYTHON = "C:\path\to\python.exe"
 - HDMI 显示原图（含蓝色边框）的照片，包含分辨率信息。
 - 能确认板卡、JTAG、HDMI 和 USB 串口接线的照片。
 - 若失败：失败步骤、完整错误文本和最后一个正常现象。
+
+## 15. 无板卡软硬件协同仿真
+
+上板前用一条无板卡协同仿真链把整条数据通路串起来，提前发现上位机 / PS / PL 之间的
+协议、字节序、地址或格式不一致。一键运行（Git-Bash）：
+
+```bash
+bash tools/cosim/run_exp03_cosim.sh
+```
+
+链路：
+
+```text
+真实 camera_uart_sender 打包 -> UART 字节流(文件)
+  -> 真实 main.c receive_frame(主机编译, #include 不改源码) -> framebuffer
+  -> 与 golden 逐像素比对 + 错误注入返回码核对
+  -> hdmi_bram_display 全分辨率 RTL 渲染(xsim) -> 捕获 HDMI 帧
+  -> 重建 PNG 与 golden 逐像素自动比对
+```
+
+已实测通过（`EXP03_COSIM_CHAIN=passed`）：上位机打包与本地编码器逐字节一致；真实 PS
+解析得到的 framebuffer 与 golden 逐像素一致，错误注入返回码 `-1/-2/-3/-5/-7` 与 `main.c`
+一致；RTL 渲染的 `1280x720` 帧（921600 像素）与期望画面逐像素一致。证据见
+`../coursework/evidence/04_uart_hdmi/exp03_cosim.txt`。
+
+组成：`tools/cosim/exp03_cosim.py`（生成真实字节流、golden 与比对）、
+`tools/cosim/ps_protocol_model.c`（纳入真实 `main.c` 的 PS 主机模型）、
+`sim/hdmi_bram_display_cosim_tb.v`（全分辨率渲染捕获）、`tools/cosim/run_exp03_cosim.sh`（编排）。
+工具路径可用 `EXP03_PYTHON` / `EXP03_HOSTCC` / `EXP03_VIVADO_BIN` 覆盖；中间产物在
+可删除重建的 `build/cosim/`，不提交 Git。
+
+本链不能替代现场项：板级时钟/管脚、DDR/MIO、UART 电气链路、JTAG、HDMI 物理输出，以及
+完整 Vitis BSP/ELF 链接构建。
