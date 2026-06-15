@@ -37,7 +37,7 @@
 | 里程碑         | 内容                            | 当前状态                        |
 | ----------- | ----------------------------- | --------------------------- |
 | `exp00`     | RTL 仿真、输入输出图与关键波形             | 默认仿真通过（ModelSim SE-64 10.5） |
-| `exp01`     | HDMI 固定图片                     | XSim、实现和 bitstream 通过；待现场上板 |
+| `exp01`     | HDMI 固定图片                     | 蓝色边框扩展、XSim、实现和 bitstream 通过；待现场上板 |
 | `exp02`     | 固定图片 Sobel                    | 未开始                         |
 | `exp03`     | PC UART -> PS -> BRAM -> HDMI | 未开始                         |
 | `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 未开始                         |
@@ -137,12 +137,14 @@ git log --oneline --left-right main...upstream/main
 2026-06-15 在 `exp/01-hdmi-pattern` 完成远程开发阶段：
 
 1. 从已合并实验 0 的 `main` 创建分支，未修改实验 2 及后续实验。
-2. 使用 Vivado 2023.2 XSim 验证 HDMI 时序、`9216` 个 ROM 像素及 RGB 映射。
+2. 使用 Vivado 2023.2 XSim 验证 HDMI 时序、蓝色边框、`9216` 个 ROM 像素及 RGB 映射。
 3. 使用隔离 Tcl 工程编译归档的 `video_clock` 和 `rgb2dvi` 源码，未覆盖 2017.4 XPR。
-4. 综合、布局布线和 bitstream 生成通过；WNS `7.969 ns`、TNS `0 ns`。
-5. DRC 为 0 error、1 warning；`ZPS7-1` 来自本实验纯 PL 设计未实例化 PS7。
-6. 资源占用为 205 LUT、177 FF、12 BRAM、1 MMCM 和 8 OSERDES。
-7. 远程构建基线提交为 `fab4bce33a8382f8620659d42599c479fa3fadb6`。
+4. 完成可配置边框扩展，默认在有效画面四周叠加 16 像素 `24'h0066ff` 蓝色边框。
+5. 综合、布局布线和 bitstream 生成通过；WNS `7.772 ns`、TNS `0 ns`。
+6. DRC 为 0 error、1 warning；`ZPS7-1` 来自本实验纯 PL 设计未实例化 PS7。
+7. 资源占用为 232 LUT、179 FF、12 BRAM、1 MMCM 和 8 OSERDES。
+8. 远程构建基线提交为 `fab4bce33a8382f8620659d42599c479fa3fadb6`；
+   扩展的最终提交号以 `exp/01-hdmi-pattern` 当前 HEAD 为准。
 
 现场下载、HDMI 验收和回传清单见
 [`sobel_01_hdmi_pattern/README.md`](../sobel_01_hdmi_pattern/README.md) 的“远程开发结果与现场上板流程”。

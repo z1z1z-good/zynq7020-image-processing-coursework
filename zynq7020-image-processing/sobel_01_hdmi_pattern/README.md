@@ -172,9 +172,13 @@ video_clock 和 rgb2dvi_0 是否存在
 | 调整图片显示位置 | `hdmi_image_display.v` 中的坐标映射 | 图片能显示在左上、居中或指定区域，报告说明坐标计算方法 |
 | 修改背景颜色 | `hdmi_image_display.v` 的非图片区域 RGB 输出 | HDMI 背景颜色发生变化，图片区域仍正常显示 |
 | 更换固定图片 | `hdmi_image_display.v` 中的 `image_rom_128x72` 数据 | HDMI 显示新图片，报告说明 ROM 像素格式为 `24'hRRGGBB` |
-| 增加简单边框 | `hdmi_image_display.v` 的有效显示区域判断 | 图片周围出现单色边框，且不影响图片内容 |
+| 增加简单边框（已完成） | `hdmi_image_display.v` 的有效显示区域判断 | 图片周围出现单色边框，且不影响图片内容 |
 
 不建议在本实验中加入串口、PS 软件或 Sobel 运算。本实验重点是把 HDMI 时序、ROM 读地址和图像缩放关系讲清楚。
+
+本分支已实现宽度和颜色可配置的边框。默认参数为 `BORDER_WIDTH=16`、
+`BORDER_COLOR=24'h0066ff`，即在 `1280 x 720` 有效画面的四周叠加 16 像素蓝色边框。
+边框判断与同步 ROM 输出保持同一流水级，内部图片地址和内容不变。
 
 ## 8. 远程开发结果与现场上板流程
 
@@ -182,9 +186,12 @@ video_clock 和 rgb2dvi_0 是否存在
 
 - 分支：`exp/01-hdmi-pattern`
 - 远程构建基线提交：`fab4bce33a8382f8620659d42599c479fa3fadb6`
+- 当前分支包含可配置蓝色边框扩展，现场测试以 `git rev-parse HEAD` 的结果为准
 - 现场测试前执行 `git rev-parse HEAD`，记录实际测试的最终提交号
 - Vivado/XSim 2023.2：仿真、综合、实现和 bitstream 生成通过
-- 时序：WNS `7.969 ns`、TNS `0 ns`
+- XSim 已验证边框像素数、边框颜色、内部 ROM 映射和完整 HDMI 时序
+- 时序：WNS `7.772 ns`、TNS `0 ns`
+- 资源：232 LUT、179 FF、12 BRAM、1 MMCM、8 OSERDES
 - DRC：0 error、1 warning；`ZPS7-1` 是纯 PL 设计未实例化 PS7 的已知警告
 - JTAG、Program Device 和 HDMI 实机现象：待现场验证
 
@@ -247,7 +254,8 @@ Utilization 和 Timing Summary。不要保存升级结果到原始 2017.4 XPR。
 ### 8.5 预期现象与通过标准
 
 - 无预期串口输出。
-- HDMI 应显示全屏固定渐变图：中央红色竖条、白色横带和两条黑色对角线。
+- HDMI 应显示带 16 像素蓝色外边框的全屏固定渐变图；内部仍包含中央红色竖条、
+  白色横带和两条黑色对角线。
 - 现场画面应与
   [`coursework/evidence/02_hdmi_pattern/exp01_expected_pattern.png`](../coursework/evidence/02_hdmi_pattern/exp01_expected_pattern.png)
   一致，不应黑屏、滚动、周期闪烁、明显错色或裁切。

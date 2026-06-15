@@ -2,16 +2,20 @@
 
 module hdmi_image_display_tb;
 
-localparam H_ACTIVE = 128;
+localparam H_ACTIVE = 256;
 localparam H_FP = 2;
 localparam H_SYNC = 4;
 localparam H_BP = 3;
-localparam V_ACTIVE = 72;
+localparam V_ACTIVE = 144;
 localparam V_FP = 2;
 localparam V_SYNC = 2;
 localparam V_BP = 2;
 localparam H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP;
 localparam V_TOTAL = V_ACTIVE + V_FP + V_SYNC + V_BP;
+localparam BORDER_WIDTH = 2;
+localparam [23:0] BORDER_COLOR = 24'h0066ff;
+localparam SCALE_X = H_ACTIVE / 128;
+localparam SCALE_Y = V_ACTIVE / 72;
 
 reg clk = 1'b0;
 reg rst = 1'b1;
@@ -27,6 +31,10 @@ integer active_pixels = 0;
 integer hs_cycles = 0;
 integer vs_cycles = 0;
 integer errors = 0;
+integer border_pixels = 0;
+integer output_x = 0;
+integer output_y = 0;
+integer expected_addr = 0;
 reg counting = 1'b0;
 reg previous_vs = 1'b0;
 reg test_done = 1'b0;
@@ -42,7 +50,9 @@ hdmi_image_display #(
     .V_ACTIVE(V_ACTIVE),
     .V_FP(V_FP),
     .V_SYNC(V_SYNC),
-    .V_BP(V_BP)
+    .V_BP(V_BP),
+    .BORDER_WIDTH(BORDER_WIDTH),
+    .BORDER_COLOR(BORDER_COLOR)
 ) dut (
     .clk(clk),
     .rst(rst),
@@ -64,6 +74,7 @@ always @(posedge clk) begin
             active_pixels = 0;
             hs_cycles = 0;
             vs_cycles = 0;
+            border_pixels = 0;
         end else if (frame_count == 2) begin
             counting = 1'b0;
 
@@ -80,6 +91,14 @@ always @(posedge clk) begin
             if (vs_cycles != V_SYNC * H_TOTAL) begin
                 $display("ERROR: VS count %0d, expected %0d",
                          vs_cycles, V_SYNC * H_TOTAL);
+                errors = errors + 1;
+            end
+            if (border_pixels !=
+                (H_ACTIVE * V_ACTIVE -
+                 (H_ACTIVE - 2 * BORDER_WIDTH) *
+                 (V_ACTIVE - 2 * BORDER_WIDTH))) begin
+                $display("ERROR: border pixel count %0d is incorrect",
+                         border_pixels);
                 errors = errors + 1;
             end
 
@@ -102,11 +121,26 @@ always @(posedge clk) begin
         if (vs)
             vs_cycles = vs_cycles + 1;
         if (de) begin
-            if ({rgb_r, rgb_g, rgb_b} !==
-                dut.u_image_rom_128x72.image_mem[active_pixels]) begin
+            output_x = active_pixels % H_ACTIVE;
+            output_y = active_pixels / H_ACTIVE;
+            expected_addr = (output_y / SCALE_Y) * 128 +
+                            (output_x / SCALE_X);
+
+            if ((output_x < BORDER_WIDTH) ||
+                (output_x >= H_ACTIVE - BORDER_WIDTH) ||
+                (output_y < BORDER_WIDTH) ||
+                (output_y >= V_ACTIVE - BORDER_WIDTH)) begin
+                if ({rgb_r, rgb_g, rgb_b} !== BORDER_COLOR) begin
+                    $display("ERROR: border pixel %0d is %h, expected %h",
+                             active_pixels, {rgb_r, rgb_g, rgb_b}, BORDER_COLOR);
+                    errors = errors + 1;
+                end
+                border_pixels = border_pixels + 1;
+            end else if ({rgb_r, rgb_g, rgb_b} !==
+                         dut.u_image_rom_128x72.image_mem[expected_addr]) begin
                 $display("ERROR: pixel %0d is %h, expected %h",
                          active_pixels, {rgb_r, rgb_g, rgb_b},
-                         dut.u_image_rom_128x72.image_mem[active_pixels]);
+                         dut.u_image_rom_128x72.image_mem[expected_addr]);
                 errors = errors + 1;
             end
             active_pixels = active_pixels + 1;

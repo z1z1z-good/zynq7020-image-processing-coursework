@@ -1,7 +1,7 @@
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 | Tool Version : Vivado v.2023.2 (win64) Build 4029153 Fri Oct 13 20:14:34 MDT 2023
-| Date         : Mon Jun 15 10:30:07 2026
+| Date         : Mon Jun 15 13:06:15 2026
 | Host         : zzz running 64-bit major release  (build 9200)
 | Command      : report_drc -file D:/codex_prj/fpga_dick/exp01_worktree/zynq7020-image-processing/coursework/evidence/02_hdmi_pattern/exp01_drc.txt
 | Design       : top

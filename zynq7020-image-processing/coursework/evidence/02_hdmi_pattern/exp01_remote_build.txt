@@ -12,17 +12,23 @@ Simulation:
 
 Implementation:
   Route completed successfully
-  WNS: 7.969 ns
+  WNS: 7.772 ns
   TNS: 0.000 ns
-  WHS: 0.070 ns
+  WHS: 0.069 ns
   THS: 0.000 ns
 
 Resources:
-  LUT: 205
-  FF: 177
+  LUT: 232
+  FF: 179
   BRAM tiles: 12
   MMCM: 1
   OSERDES: 8
+
+Extension:
+  Configurable border enabled
+  Default width: 16 pixels
+  Default RGB: 0x0066ff
+  XSim checks border color/count and interior ROM mapping
 
 DRC and bitstream:
   Errors: 0

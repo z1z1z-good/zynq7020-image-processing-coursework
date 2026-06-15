@@ -19,6 +19,8 @@ parameter V_ACTIVE = 16'd720;
 parameter V_FP     = 16'd5;
 parameter V_SYNC   = 16'd5;
 parameter V_BP     = 16'd20;
+parameter BORDER_WIDTH = 16'd16;
+parameter [23:0] BORDER_COLOR = 24'h0066ff;
 
 localparam H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP;
 localparam V_TOTAL = V_ACTIVE + V_FP + V_SYNC + V_BP;
@@ -38,6 +40,8 @@ reg hs_reg_d0;
 reg vs_reg_d0;
 reg de_reg_d0;
 reg [13:0] rom_addr;
+reg border_reg;
+reg border_reg_d0;
 
 wire h_active;
 wire v_active;
@@ -50,6 +54,8 @@ wire [6:0] image_x;
 wire [6:0] image_y;
 wire [13:0] image_addr;
 wire [23:0] image_pixel;
+wire border_now;
+wire [23:0] output_pixel;
 
 assign h_active = (h_cnt >= H_START[11:0]) && (h_cnt < (H_START + H_ACTIVE));
 assign v_active = (v_cnt >= V_START[11:0]) && (v_cnt < (V_START + V_ACTIVE));
@@ -63,13 +69,19 @@ assign active_y = v_cnt - V_START[11:0];
 assign image_x = active_x / SCALE_X;
 assign image_y = active_y / SCALE_Y;
 assign image_addr = {image_y, 7'b0} + {7'd0, image_x};
+assign border_now = video_active &&
+                    ((active_x < BORDER_WIDTH) ||
+                     (active_x >= H_ACTIVE - BORDER_WIDTH) ||
+                     (active_y < BORDER_WIDTH) ||
+                     (active_y >= V_ACTIVE - BORDER_WIDTH));
+assign output_pixel = border_reg_d0 ? BORDER_COLOR : image_pixel;
 
 assign hs = hs_reg_d0;
 assign vs = vs_reg_d0;
 assign de = de_reg_d0;
-assign rgb_r = de_reg_d0 ? image_pixel[23:16] : 8'h00;
-assign rgb_g = de_reg_d0 ? image_pixel[15:8]  : 8'h00;
-assign rgb_b = de_reg_d0 ? image_pixel[7:0]   : 8'h00;
+assign rgb_r = de_reg_d0 ? output_pixel[23:16] : 8'h00;
+assign rgb_g = de_reg_d0 ? output_pixel[15:8]  : 8'h00;
+assign rgb_b = de_reg_d0 ? output_pixel[7:0]   : 8'h00;
 
 image_rom_128x72 u_image_rom_128x72 (
     .clk(clk),
@@ -108,6 +120,8 @@ always @(posedge clk) begin
         vs_reg_d0 <= 1'b0;
         de_reg_d0 <= 1'b0;
         rom_addr <= 14'd0;
+        border_reg <= 1'b0;
+        border_reg_d0 <= 1'b0;
     end else begin
         hs_reg <= hsync_now;
         vs_reg <= vsync_now;
@@ -116,6 +130,8 @@ always @(posedge clk) begin
         vs_reg_d0 <= vs_reg;
         de_reg_d0 <= de_reg;
         rom_addr <= video_active ? image_addr : 14'd0;
+        border_reg <= border_now;
+        border_reg_d0 <= border_reg;
     end
 end
 
