@@ -1,0 +1,34 @@
+实验 3 UART -> BRAM -> HDMI 远程构建结果（精简）
+
+日期：2026-06-15
+分支：exp/03-uart-hdmi
+工具：Vivado 2023.2（隔离 Tcl 工程，非项目模式全局综合）
+器件：xc7z020clg400-2
+脚本：run_exp03_bitstream.tcl
+
+Block Design（在 build 目录内全新重建，未触碰仓库已提交的 2017.4 BD）：
+  processing_system7 + proc_sys_reset + smartconnect + axi_bram_ctrl + blk_mem_gen
+  AXI BRAM 基址 0x40000000，范围 64K；BRAM 端口 B 外引给 PL HDMI 读取。
+  IP 版本随 Vivado 2023.2 自动解析（axi_bram_ctrl 取 4.1 等），不硬编码 2017.4 版本。
+  BD 设为 synth_checkpoint_mode None（全局综合），避免本环境下的 OOC 子进程派生问题。
+
+结果：
+- Synthesis / Opt / Place / Phys-opt / Route / Bitstream：通过
+- write_bitstream completed successfully，top.bit 生成（约 4.0 MB，未提交 Git）
+- 导出硬件平台 ps_uart_bram_hdmi.xsa（含地址映射的硬件规格，供 Vitis PS 程序编译）
+
+时序（report_timing_summary，All user specified timing constraints are met）：
+- WNS 8.173 ns，TNS 0.000 ns
+- WHS 0.062 ns，THS 0.000 ns
+
+资源（report_utilization）：
+- Slice LUTs 1775（其中 LUT as Logic 1527）
+- Slice Registers 1504
+- Block RAM Tile 16
+- DSP 0
+- MMCME2_ADV 1，BUFGCTRL 4，Bonded IOB 10
+
+DRC（report_drc）：Violations found 0
+（本实验实例化了 PS7，因此没有 sobel_01/sobel_02 那种 ZPS7-1 警告。）
+
+不提交 top.bit / .xsa / .dcp / .runs / .gen 等大型生成物（已被 .gitignore 覆盖）。
