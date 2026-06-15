@@ -11,9 +11,9 @@
 | 正式 Git 工作树 | 已建立 |
 | 教师仓库远端 `upstream` | 已配置 |
 | 个人私有远端 `origin` | 已配置并完成首次推送 |
-| Vivado / Vitis | Vivado 2023.2 已完成实验 1 隔离构建；Vitis 本实验不适用 |
+| Vivado / Vitis | Vivado 2023.2 已完成实验 1、实验 3 隔离构建；Vitis 2023.2 实验 3 PS 程序源码编译检查通过 |
 | Python 上位机环境 | Python 3.11，基础依赖已验证 |
-| 实验 0 至实验 5 | 实验 0 已通过；实验 1 远程构建通过、待现场 HDMI 验证；实验 2 至实验 5 尚未验证 |
+| 实验 0 至实验 5 | 实验 0 已通过；实验 1、实验 3 远程仿真与构建通过、待现场验证；实验 2 在 `exp/02-hdmi-sobel` 分支单独推进；实验 4、实验 5 尚未开始 |
 | 开发板实机测试 | 等待板卡和连接条件 |
 
 源码存在不等于实验已经通过。只有实际运行并保存证据后，才更新实验状态。
@@ -39,7 +39,7 @@
 | `exp00`     | RTL 仿真、输入输出图与关键波形             | 默认仿真通过（ModelSim SE-64 10.5） |
 | `exp01`     | HDMI 固定图片                     | 蓝色边框扩展、XSim、实现和 bitstream 通过；待现场上板 |
 | `exp02`     | 固定图片 Sobel                    | 未开始                         |
-| `exp03`     | PC UART -> PS -> BRAM -> HDMI | 未开始                         |
+| `exp03`     | PC UART -> PS -> BRAM -> HDMI | 边框扩展、协议自检、XSim、实现、bitstream 与 PS 源码检查通过；待现场上板                         |
 | `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 未开始                         |
 | `exp05`     | PC 控制模式、阈值和叠加                 | 未开始                         |
 | `extension` | 上位机缩放策略扩展                     | 未开始                         |
@@ -149,3 +149,27 @@ git log --oneline --left-right main...upstream/main
 现场下载、HDMI 验收和回传清单见
 [`sobel_01_hdmi_pattern/README.md`](../sobel_01_hdmi_pattern/README.md) 的“远程开发结果与现场上板流程”。
 在收到真实 HDMI 照片和现场日志前，实验 1 不标记为“上板通过”。
+
+## 实验 3 远程开发结果
+
+2026-06-15 在 `exp/03-uart-hdmi` 完成远程开发阶段：
+
+1. 从与 `origin/main` 一致的 `main`（含实验 0、实验 1 成果）创建分支，未修改实验 4、实验 5。
+2. 完成“图像边框”基础扩展：`hdmi_bram_display.v` 新增 `BORDER_WIDTH`（默认 `20`）和
+   `BORDER_COLOR`（默认 `24'h0066ff`），仅改显示映射，不影响 BRAM 图像数据。
+3. 上位机帧编码与 PS `receive_frame` 往返无损（`9216` 像素逐像素一致），错误码
+   `-1/-2/-3/-5/-7` 与 `main.c` 一致（`generate_exp03_expected.py`）。
+4. XSim 验证 HDMI 时序、有效像素数、HS/VS、10x 缩放地址、读延迟流水线对齐和边框映射。
+5. 使用隔离 Tcl 工程在 build 目录内重建 PS7 + AXI BRAM Block Design（全局综合，IP 版本随
+   2023.2 自动解析），未覆盖 2017.4 BD；综合、实现、bitstream 与 XSA 导出通过。
+6. WNS `8.173 ns`、TNS `0 ns`、WHS `0.062 ns`、THS `0 ns`；DRC 0 violations
+   （本实验实例化 PS7，无 `ZPS7-1` 警告）。
+7. 资源占用为 `1775` LUT、`1504` FF、`16` BRAM、`0` DSP、`1` MMCM。
+8. PS 程序 `main.c` 用 `arm-none-eabi-gcc 12.2.0` 编译检查 0 error、0 warning；完整 Vitis
+   BSP/app 构建脚本为 `build_exp03_ps_app.tcl`（需在正常 Vitis 环境运行）。
+
+仿真、协议自检、预期 HDMI 图、资源、时序、DRC 和 PS 编译证据见
+[`evidence/04_uart_hdmi`](evidence/04_uart_hdmi/README.md)。
+现场下载、运行、HDMI 验收和回传清单见
+[`sobel_03_uart_hdmi/README.md`](../sobel_03_uart_hdmi/README.md) 的“远程开发结果与现场上板流程”。
+在收到真实 HDMI 照片、串口日志和 Hardware Manager 记录前，实验 3 不标记为“上板通过”。

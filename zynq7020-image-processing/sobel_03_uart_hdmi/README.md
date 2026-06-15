@@ -575,4 +575,151 @@ frame error -7
 | 增加图像边框 | `hdmi_bram_display.v` 的显示区域判断 | HDMI 图像周围出现单色边框，图像内容不被破坏 |
 | 串口帧率与稳定性记录 | 不改硬件，调整 PC 端运行参数 | 对比 2 到 3 组 `--fps` 或 `--line-delay`，记录是否出现 `frame error` |
 
+本仓库已完成“增加图像边框”扩展：在 `hdmi_bram_display.v` 中新增可配置参数
+`BORDER_WIDTH`（默认 `20`）和 `BORDER_COLOR`（默认 `24'h0066ff` 蓝色），在有效显示区
+外圈叠加单色边框；仅改显示映射，不影响 BRAM 读取的图像数据，`BORDER_WIDTH=0` 可关闭。
+预期 HDMI 画面见 `../coursework/evidence/04_uart_hdmi/exp03_expected_image.png`。
+
 不建议在本实验中做 UDP、DMA、网络摄像头、双缓冲或 PC 端 GUI 修改。这些内容工作量较大，不适合作为第一周基础扩展。
+
+## 14. 远程开发结果与现场上板流程
+
+### 14.1 当前状态
+
+- 分支：`exp/03-uart-hdmi`
+- 基线：从与 `origin/main` 一致的 `main` 创建（含实验 0、实验 1 成果）
+- 工具：Vivado / XSim 2023.2，Vitis 2023.2
+- 器件：`xc7z020clg400-2`
+- 状态：远程仿真、综合、实现、时序、DRC、bitstream，以及上位机协议自检和 PS 源码编译检查通过；真实 JTAG / UART / HDMI 待现场验证
+- 默认显示边框：`BORDER_WIDTH = 20`，`BORDER_COLOR = 24'h0066ff`
+
+获取现场实际测试的提交号：
+
+```powershell
+git switch exp/03-uart-hdmi
+git pull --ff-only origin exp/03-uart-hdmi
+git rev-parse HEAD
+```
+
+### 14.2 已验证的数据链
+
+```text
+PC 图像 -> UART(0x55AA 帧头 + 0x33CC 行头 + 128x72 RGB888)
+  -> PS receive_frame 写 AXI BRAM(0x40000000, 0x00RRGGBB)
+  -> PL hdmi_bram_display 读 BRAM
+  -> 10x 放大 + 外圈蓝色边框
+  -> 1280x720 HDMI
+```
+
+远程阶段已确认：
+
+1. 上位机帧编码与 PS `receive_frame` 往返无损（`9216` 像素逐像素一致），错误注入返回码
+   `-1/-2/-3/-5/-7` 与 `main.c` 一致（`tools/generate_exp03_expected.py`）。
+2. XSim 验证 HDMI 时序、有效像素数、HS/VS、10x 缩放地址、读延迟流水线对齐和边框映射
+   （`sim/hdmi_bram_display_tb.v`）。
+3. Vivado 综合/实现/时序/DRC/bitstream 通过：WNS `8.173 ns`、TNS `0`、DRC `0` violations、
+   `1775` LUT / `1504` FF / `16` BRAM / `0` DSP。
+4. PS 源码用 `arm-none-eabi-gcc 12.2.0` 编译检查 `0` error、`0` warning。
+
+### 14.3 命令行复现
+
+在本目录执行（Vivado/Vitis 自带或正常 PowerShell 环境）：
+
+```powershell
+# 仿真（生成预期数据 + XSim 自检）
+& D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -source run_exp03_sim.tcl
+# 综合/实现/bitstream + 导出 XSA
+& D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -source run_exp03_bitstream.tcl
+# PS 应用编译（生成 .elf）
+& D:\Vivado\Vitis\2023.2\bin\xsct.bat build_exp03_ps_app.tcl
+```
+
+bitstream 与 XSA 生成在可删除重建的 `build/` 目录（不提交 Git）：
+
+```text
+build/vivado_2023_2/top.bit
+build/vivado_2023_2/ps_uart_bram_hdmi.xsa
+```
+
+若独立 Python 不在 `D:\Miniconda3\python.exe`，仿真前设置：
+
+```powershell
+$env:EXP03_PYTHON = "C:\path\to\python.exe"
+```
+
+注（自动化无头环境）：若 `launch_simulation` 报 “Spawn failed” 或 XSCT 报
+“Timeout while establishing a connection with Vitis”，是该环境无法派生 Vivado/Vitis
+子进程所致，与设计无关；可改用直接流程验证：`xvlog`/`xelab`/`xsim` 跑仿真，
+`arm-none-eabi-gcc -c` 检查 PS 源码（见 `tools/ps_syntax_check/` 与
+`../coursework/evidence/04_uart_hdmi/`）。
+
+### 14.4 硬件与接线
+
+需要：
+
+- 目标为 `xc7z020clg400-2` 的 ZYNQ7020 开发板、匹配电源和 JTAG 下载线。
+- USB 串口线（PS UART1，`115200 8N1`），记录实际 COM 口。
+- HDMI 线和支持 `1280 x 720` 的显示器或采集设备。
+- 用于拍摄显示器和接线状态的相机。
+
+接线顺序：
+
+1. 断电连接 JTAG、HDMI、USB 串口和板卡电源。
+2. HDMI 连接开发板输出端与显示器输入端，选择正确输入源。
+3. 上电，确认 Hardware Manager 能识别目标器件。
+
+### 14.5 下载、运行与发送
+
+1. 完成上面的 bitstream 与 PS 应用构建。
+2. Vitis 中 `Program FPGA`，bitstream 指向 `build/vivado_2023_2/top.bit`
+   （或 Hardware Manager 手动下载 `top.bit`）。
+3. `Run` / `Launch on Hardware` 运行 `ps_uart_bram_app`（`.elf`）。
+4. 串口助手 `115200 8N1`，应看到：
+
+   ```text
+   PS UART BRAM HDMI display
+   BRAM base: 0x40000000, baud: 115200
+   waiting for frame header
+   ```
+
+5. 关闭串口助手，用 `../host_camera_uart/camera_uart_sender.py` 发送图片：
+
+   ```bash
+   python camera_uart_sender.py --port COM7 --baud 115200 --image test.jpg --once --preview
+   ```
+
+### 14.6 预期画面与通过标准
+
+预期画面：HDMI 显示 PC 发送的 `128 x 72` 原图，10x 放大到 `1280 x 720`，四周叠加默认
+`20` 像素蓝色（`24'h0066ff`）边框。结构应与
+`../coursework/evidence/04_uart_hdmi/exp03_expected_image.png` 一致（该 PNG 为合成测试图，
+现场图像内容取决于实际发送的图片，但缩放与边框关系应一致）。
+
+通过标准：
+
+1. 显示器稳定识别 `1280 x 720`，连续保持至少 30 秒。
+2. 串口稳定打印启动信息；发送图像后画面更新，无明显错行或撕裂。
+3. 图像四周有完整蓝色边框，图像内容不被边框破坏。
+4. Program Device、PS 运行、板卡型号、Vivado/Vitis 版本、COM 口和实际提交号均有记录。
+
+在收到真实 HDMI 照片、串口日志和 Hardware Manager 记录前，不得标记为“上板通过”。
+
+### 14.7 失败排查顺序
+
+1. 串口无输出：确认已 Program FPGA 且运行了 PS 程序（非仅下载 bitstream）、COM 口与
+   `115200 8N1`、未被其他程序占用、已编译最新 `.elf`。
+2. 串口有输出但 HDMI 无画面：确认显示器输入源、`top.bit` 为最新、顶层为 `top`、
+   `hdmi_out_test.xdc` 生效、HDMI 接线。
+3. HDMI 有画面但发送后不更新：关闭串口助手后再运行 Python，核对 `--port`/`--baud`/`--fps`。
+4. `frame error`：降低 `--fps`、增加 `--line-delay`、确认 USB 串口与波特率一致
+   （错误码含义见第 12.4 节）。
+5. 边框异常：核对实际提交号与默认 `BORDER_WIDTH=20`，并重跑 XSim。
+
+### 14.8 现场必须回传
+
+- 实际分支和完整提交号。
+- 测试日期、板卡型号、Vivado/Vitis 版本、COM 口和显示设备型号。
+- Hardware Manager 识别目标、Program Device 成功、PS 程序串口启动日志。
+- HDMI 显示原图（含蓝色边框）的照片，包含分辨率信息。
+- 能确认板卡、JTAG、HDMI 和 USB 串口接线的照片。
+- 若失败：失败步骤、完整错误文本和最后一个正常现象。
