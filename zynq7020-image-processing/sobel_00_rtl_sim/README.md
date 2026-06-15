@@ -81,11 +81,20 @@ tools/convert_images.py
 Windows PowerShell 中检查：
 
 ```powershell
-iverilog -V
 python --version
+iverilog -V
+vsim -version
+xsim -version
 ```
 
-如果 Windows 没有原生 Icarus Verilog，也可以使用 WSL：
+`run_sim.ps1` 默认按 Icarus、ModelSim、XSim 的顺序自动选择可用仿真器。也可以显式选择：
+
+```powershell
+.\run_sim.ps1 -Simulator modelsim
+.\run_sim.ps1 -Simulator xsim
+```
+
+如果 Windows 没有可用的原生仿真器，也可以显式使用 WSL：
 
 ```powershell
 .\run_sim.ps1 -UseWsl
@@ -168,7 +177,8 @@ make images
 
 ### 6.1 找不到 iverilog
 
-说明 Icarus Verilog 没有安装，或者没有加入 `PATH`。Windows 下可改用 WSL 运行：
+说明 Icarus Verilog 没有安装，或者没有加入 `PATH`。脚本会继续检测 ModelSim 和 XSim。
+如果三者都不可用，Windows 下可改用 WSL 运行：
 
 ```powershell
 .\run_sim.ps1 -UseWsl

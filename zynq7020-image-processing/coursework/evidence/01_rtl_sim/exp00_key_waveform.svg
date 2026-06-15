@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760">
+<style>
+text { font-family: Consolas, 'Microsoft YaHei', sans-serif; fill: #e5e7eb; }
+.title { font-size: 27px; font-weight: 700; }
+.subtitle { font-size: 17px; fill: #94a3b8; }
+.label { font-size: 17px; }
+.tick { font-size: 14px; fill: #94a3b8; }
+</style>
+<rect width="1600" height="760" fill="#0f172a"/>
+<text x="40" y="45" class="title">Experiment 0: default RTL simulation waveform</text>
+<text x="40" y="75" class="subtitle">Source: ModelSim-generated VCD; edge_frame_done is observed through video_frame_done, its registered mirror.</text>
+<rect x="25" y="110" width="1550" height="300" rx="10" fill="#111827" stroke="#334155"/>
+<text x="45" y="142" class="title">Valid frame start</text>
+<line x1="285.00" y1="150" x2="285.00" y2="398" stroke="#243244"/>
+<text x="285.00" y="423" class="tick" text-anchor="middle">356.515 us</text>
+<line x1="539.00" y1="150" x2="539.00" y2="398" stroke="#243244"/>
+<text x="539.00" y="423" class="tick" text-anchor="middle">396.515 us</text>
+<line x1="793.00" y1="150" x2="793.00" y2="398" stroke="#243244"/>
+<text x="793.00" y="423" class="tick" text-anchor="middle">436.515 us</text>
+<line x1="1047.00" y1="150" x2="1047.00" y2="398" stroke="#243244"/>
+<text x="1047.00" y="423" class="tick" text-anchor="middle">476.515 us</text>
+<line x1="1301.00" y1="150" x2="1301.00" y2="398" stroke="#243244"/>
+<text x="1301.00" y="423" class="tick" text-anchor="middle">516.515 us</text>
+<line x1="1555.00" y1="150" x2="1555.00" y2="398" stroke="#243244"/>
+<text x="1555.00" y="423" class="tick" text-anchor="middle">556.515 us</text>
+<line x1="602.50" y1="146" x2="602.50" y2="398" stroke="#f87171" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="267" y="182" class="label" text-anchor="end">frame_start</text>
+<line x1="285" y1="188" x2="1555" y2="188" stroke="#1f2937"/>
+<path d="M 285.00 188.00 H 602.50 V 164.00 H 603.02 V 188.00 H 1555.00" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="230" class="label" text-anchor="end">rgb_valid</text>
+<line x1="285" y1="236" x2="1555" y2="236" stroke="#1f2937"/>
+<path d="M 285.00 236.00 H 1039.89 V 212.00 H 1040.41 V 236.00 H 1227.34 V 212.00 H 1227.86 V 236.00 H 1414.79 V 212.00 H 1415.31 V 236.00 H 1555.00" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="278" class="label" text-anchor="end">gray_valid</text>
+<line x1="285" y1="284" x2="1555" y2="284" stroke="#1f2937"/>
+<path d="M 285.00 284.00 H 1040.41 V 260.00 H 1040.93 V 284.00 H 1227.86 V 260.00 H 1228.38 V 284.00 H 1415.31 V 260.00 H 1415.83 V 284.00 H 1555.00" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="326" class="label" text-anchor="end">edge_valid</text>
+<line x1="285" y1="332" x2="1555" y2="332" stroke="#1f2937"/>
+<path d="M 285.00 332.00 H 1555.00" fill="none" stroke="#f472b6" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="374" class="label" text-anchor="end">edge_frame_done (mirrored)</text>
+<line x1="285" y1="380" x2="1555" y2="380" stroke="#1f2937"/>
+<path d="M 285.00 380.00 H 1555.00" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="25" y="440" width="1550" height="300" rx="10" fill="#111827" stroke="#334155"/>
+<text x="45" y="472" class="title">Sobel frame completion</text>
+<line x1="285.00" y1="480" x2="285.00" y2="728" stroke="#243244"/>
+<text x="285.00" y="753" class="tick" text-anchor="middle">275213.319 us</text>
+<line x1="539.00" y1="480" x2="539.00" y2="728" stroke="#243244"/>
+<text x="539.00" y="753" class="tick" text-anchor="middle">275233.467 us</text>
+<line x1="793.00" y1="480" x2="793.00" y2="728" stroke="#243244"/>
+<text x="793.00" y="753" class="tick" text-anchor="middle">275253.614 us</text>
+<line x1="1047.00" y1="480" x2="1047.00" y2="728" stroke="#243244"/>
+<text x="1047.00" y="753" class="tick" text-anchor="middle">275273.762 us</text>
+<line x1="1301.00" y1="480" x2="1301.00" y2="728" stroke="#243244"/>
+<text x="1301.00" y="753" class="tick" text-anchor="middle">275293.909 us</text>
+<line x1="1555.00" y1="480" x2="1555.00" y2="728" stroke="#243244"/>
+<text x="1555.00" y="753" class="tick" text-anchor="middle">275314.057 us</text>
+<line x1="1545.70" y1="476" x2="1545.70" y2="728" stroke="#f87171" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="267" y="512" class="label" text-anchor="end">frame_start</text>
+<line x1="285" y1="518" x2="1555" y2="518" stroke="#1f2937"/>
+<path d="M 285.00 518.00 H 1555.00" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="560" class="label" text-anchor="end">rgb_valid</text>
+<line x1="285" y1="566" x2="1555" y2="566" stroke="#1f2937"/>
+<path d="M 285.00 566.00 H 592.56 V 542.00 H 593.59 V 566.00 H 964.72 V 542.00 H 965.75 V 566.00 H 1336.87 V 542.00 H 1337.91 V 566.00 H 1555.00" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="608" class="label" text-anchor="end">gray_valid</text>
+<line x1="285" y1="614" x2="1555" y2="614" stroke="#1f2937"/>
+<path d="M 285.00 614.00 H 593.59 V 590.00 H 594.63 V 614.00 H 965.75 V 590.00 H 966.78 V 614.00 H 1337.91 V 590.00 H 1338.94 V 614.00 H 1555.00" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="656" class="label" text-anchor="end">edge_valid</text>
+<line x1="285" y1="662" x2="1555" y2="662" stroke="#1f2937"/>
+<path d="M 285.00 662.00 H 594.63 V 638.00 H 595.66 V 662.00 H 966.78 V 638.00 H 967.82 V 662.00 H 1338.94 V 638.00 H 1545.70 V 662.00 H 1555.00" fill="none" stroke="#f472b6" stroke-width="2.5" stroke-linejoin="round"/>
+<text x="267" y="704" class="label" text-anchor="end">edge_frame_done (mirrored)</text>
+<line x1="285" y1="710" x2="1555" y2="710" stroke="#1f2937"/>
+<path d="M 285.00 710.00 H 1545.70 V 686.00 H 1546.73 V 710.00 H 1555.00" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

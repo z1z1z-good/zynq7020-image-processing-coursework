@@ -1,0 +1,50 @@
+﻿Command: .\run_sim.ps1
+Selected simulator: modelsim (automatic selection; Icarus/VVP not found)
+
+Model Technology ModelSim SE-64 vlog 10.5 Compiler 2016.02 Feb 13 2016
+Start time: 09:29:54 on Jun 15,2026
+vlog -sv -work build\modelsim_work tb/sobel_system_tb.v rtl/uart_rx.v rtl/image_frame_rx.v rtl/rgb_to_gray.v rtl/sobel_core.v rtl/video_stream_model.v rtl/sobel_system.v
+-- Compiling module sobel_system_tb
+-- Compiling module uart_rx
+-- Compiling module image_frame_rx
+-- Compiling module rgb_to_gray
+-- Compiling module sobel_core
+-- Compiling module video_stream_model
+-- Compiling module sobel_system
+
+Top level modules:
+	sobel_system_tb
+End time: 09:29:54 on Jun 15,2026, Elapsed time: 0:00:00
+Errors: 0, Warnings: 0
+Reading D:/FPGA/ModelSim/tcl/vsim/pref.tcl
+
+# 10.5
+
+# vsim -c -lib build/modelsim_work sobel_system_tb -do "run -all; quit -f"
+# Start time: 09:29:54 on Jun 15,2026
+# ** Note: (vsim-8009) Loading existing optimized design _opt1
+# //  ModelSim SE-64 10.5 Feb 13 2016
+# //
+# //  Copyright 1991-2016 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  ModelSim SE-64 and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# Loading sv_std.std
+# Loading work.sobel_system_tb(fast)
+# run -all
+# Sobel RGB888 simulation passed
+# Output image: build/sobel_out.pgm
+# Waveform: build/sobel_system_tb.vcd
+# ** Note: $finish    : tb/sobel_system_tb.v(351)
+#    Time: 275314057 ns  Iteration: 1  Instance: /sobel_system_tb
+# End time: 09:29:59 on Jun 15,2026, Elapsed time: 0:00:05
+# Errors: 0, Warnings: 0
+Wrote build\input_rgb.png
+Wrote build\sobel_out.png
