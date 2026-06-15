@@ -1,0 +1,29 @@
+实验 4 XSim 自检与全分辨率渲染捕获
+==================================
+
+日期：2026-06-16
+分支：exp/04-uart-sobel
+工具：Vivado/XSim 2023.2（直调 xvlog / xelab / xsim，不用 launch_simulation）
+完整协同仿真链记录见同目录 exp04_cosim.txt。
+
+1) 显示链自检 testbench：sim/hdmi_bram_sobel_display_tb.v
+   缩小时序 256x144、2x 放大（128x72 扫描与 Sobel 不受显示时序影响），统计第二整帧。
+   校验项：
+     - HDMI 有效像素数 = H_ACTIVE*V_ACTIVE = 36864
+     - HS 脉宽 = H_SYNC*V_TOTAL，VS 脉宽 = V_SYNC*H_TOTAL
+     - sobel_done 在显示帧内已置位
+     - 彩色边缘显示映射与 dut 内部 edge_pixel / sobel_done 完全一致
+       （edge_pixel>=EDGE_THRESHOLD 输出 EDGE_COLOR，否则全黑）
+     - 检出彩色边缘像素（边缘确实被检测到）
+   结果：EXP04_SELFCHECK_TB=passed active=36864 green=4436
+
+2) 全分辨率渲染捕获 testbench：sim/hdmi_bram_sobel_display_cosim_tb.v
+   默认 1280x720、10x 放大、EDGE_THRESHOLD=80、EDGE_COLOR=24'h00ff00（绿色）。
+   行为级 BRAM 载入真实 PS 主机模型产出的原始 RGB framebuffer（fb_from_ps.hex），
+   PL 完成 BRAM 扫描 -> rgb_to_gray -> sobel_core -> edge_mem -> 彩色边缘显示，
+   按光栅顺序捕获整帧有效像素。
+   结果：EXP04_COSIM_CAPTURE=ok pixels=921600
+   重建 PNG 与软件 golden（gray + Sobel + 彩色映射）逐像素一致：
+   EXP04_COSIM_PNG=match pixels=921600
+
+边界：以上为 RTL 仿真层的显示/时序/算法一致性；真实 HDMI 物理输出待现场验证。
