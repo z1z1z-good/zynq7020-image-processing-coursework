@@ -19,6 +19,7 @@ parameter V_ACTIVE = 16'd720;
 parameter V_FP     = 16'd5;
 parameter V_SYNC   = 16'd5;
 parameter V_BP     = 16'd20;
+parameter [7:0] EDGE_THRESHOLD = 8'd80;
 
 localparam H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP;
 localparam V_TOTAL = V_ACTIVE + V_FP + V_SYNC + V_BP;
@@ -107,9 +108,12 @@ assign edge_wr_addr = {edge_y[6:0], 7'b0} + {7'd0, edge_x[6:0]};
 assign hs = hs_reg_d0;
 assign vs = vs_reg_d0;
 assign de = de_reg_d0;
-assign rgb_r = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
-assign rgb_g = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
-assign rgb_b = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
+assign rgb_r = (de_reg_d0 && sobel_done && (edge_pixel >= EDGE_THRESHOLD))
+               ? 8'hff : 8'h00;
+assign rgb_g = (de_reg_d0 && sobel_done && (edge_pixel >= EDGE_THRESHOLD))
+               ? 8'hff : 8'h00;
+assign rgb_b = (de_reg_d0 && sobel_done && (edge_pixel >= EDGE_THRESHOLD))
+               ? 8'hff : 8'h00;
 
 image_rom_128x72 u_image_rom_128x72 (
     .clk(clk),
@@ -150,7 +154,7 @@ sobel_core #(
     .edge_frame_done(edge_frame_done)
 );
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         h_cnt <= 12'd0;
     end else if (h_cnt == H_TOTAL - 1) begin
@@ -160,7 +164,7 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         v_cnt <= 12'd0;
     end else if (h_cnt == H_TOTAL - 1) begin
@@ -172,7 +176,7 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         hs_reg <= 1'b0;
         vs_reg <= 1'b0;
@@ -194,7 +198,7 @@ always @(posedge clk or posedge rst) begin
     end
 end
 
-always @(posedge clk or posedge rst) begin
+always @(posedge clk) begin
     if (rst) begin
         state <= ST_IDLE;
         src_x <= 7'd0;

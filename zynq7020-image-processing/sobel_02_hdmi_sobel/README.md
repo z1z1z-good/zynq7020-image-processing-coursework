@@ -207,3 +207,133 @@ Sobel 输出取决于输入图片内容。可以对比 `sobel_00_rtl_sim` 的输
 | Sobel 阈值参数对比 | `hdmi_sobel_display.v` 或 `sobel_core.v` 中的固定阈值常量 | 至少对比 3 个阈值下的 HDMI 显示效果 |
 
 不建议在本实验中加入 UART、PS 软件、网络传输或 GUI 修改。本实验重点是固定图片条件下的 PL 图像处理链路。
+
+## 8. 远程开发结果与现场上板流程
+
+### 8.1 当前状态
+
+- 分支：`exp/02-hdmi-sobel`
+- 基线：从与 `origin/main` 一致的 `main` 创建
+- 工具：Vivado/XSim 2023.2
+- 器件：`xc7z020clg400-2`
+- 状态：远程仿真、综合、实现、时序、DRC 和 bitstream 生成通过；真实 HDMI 上板待现场验证
+- 默认显示阈值：`EDGE_THRESHOLD = 8'd80`
+
+获取现场实际测试的提交号：
+
+```powershell
+git switch exp/02-hdmi-sobel
+git pull --ff-only origin exp/02-hdmi-sobel
+git rev-parse HEAD
+```
+
+### 8.2 已验证的数据链
+
+```text
+128 x 72 RGB888 ROM
+  -> rgb_to_gray
+  -> sobel_core
+  -> 8 bit edge_mem
+  -> edge_pixel >= 80 ? white : black
+  -> 10 x 10 scaling
+  -> 1280 x 720 HDMI
+```
+
+阈值只影响 HDMI 显示映射，`edge_mem` 始终保存原始 8 bit Sobel 强度。
+
+XSim 自检覆盖：
+
+1. 全部 `9216` 个 RGB 转灰度结果。
+2. 全部 `9216` 个 Sobel 坐标、数值和 `edge_mem` 写入次数。
+3. 边界像素处理和唯一一次 `edge_frame_done`。
+4. HDMI 有效像素数、HS/VS 脉宽和缩放地址。
+5. 阈值 80 时 RGB 只能为 `24'h000000` 或 `24'hffffff`。
+
+### 8.3 命令行复现
+
+在本目录执行：
+
+```powershell
+& D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -nojournal -nolog -source run_exp02_sim.tcl
+& D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -nojournal -nolog -source run_exp02_bitstream.tcl
+```
+
+第二条命令生成但不提交：
+
+```text
+build/vivado_2023_2/top.bit
+```
+
+若独立 Python 不在 `D:\Miniconda3\python.exe`，运行仿真前设置：
+
+```powershell
+$env:EXP02_PYTHON = "C:\path\to\python.exe"
+```
+
+Vivado GUI 查看方法：
+
+1. 打开 Vivado 2023.2。
+2. `File -> Open Project`，选择 `build/vivado_2023_2/exp02_build.xpr`。
+3. 在 `Open Implemented Design` 中查看 `Report Timing Summary`、`Report Utilization` 和 `Report DRC`。
+4. 原始 2017.4 XPR 只作为基线，不要直接升级或覆盖。
+
+### 8.4 硬件与接线
+
+需要：
+
+- 目标为 `xc7z020clg400-2` 的 ZYNQ7020 开发板。
+- 与板卡匹配的电源和 JTAG 下载线。
+- HDMI 线和支持 `1280 x 720` 的显示器或采集设备。
+- 用于拍摄显示器和板卡连接状态的相机。
+
+接线顺序：
+
+1. 断电连接 JTAG、HDMI 和板卡电源。
+2. HDMI 连接开发板输出端与显示器输入端。
+3. 选择正确的 HDMI 输入源，再给开发板上电。
+4. 确认 JTAG 能在 Hardware Manager 中识别目标器件。
+
+本实验没有 PS 程序、串口或上位机步骤。
+
+### 8.5 Program Device
+
+1. 完成上面的 bitstream 构建。
+2. 打开 `Hardware Manager`。
+3. 选择 `Open Target -> Auto Connect`。
+4. 确认识别到正确的 Zynq-7020 器件。
+5. 选择 `Program Device`。
+6. Bitstream 指向 `build/vivado_2023_2/top.bit`。
+7. 点击 `Program`，保存成功日志或截图。
+
+### 8.6 预期画面与通过标准
+
+预期画面为黑底白边的固定图片 Sobel 二值图，默认阈值为 80。现场画面应与
+`coursework/evidence/03_hdmi_sobel/exp02_threshold_80.png` 的结构一致。
+
+通过标准：
+
+1. 显示器稳定识别 `1280 x 720`，连续保持至少 30 秒。
+2. 画面无滚动、周期性闪烁、撕裂或明显错行。
+3. 输出只有黑色背景和白色边缘。
+4. 边缘位置与阈值 80 预期图一致。
+5. Program Device、板卡型号、Vivado 版本和实际提交号均有记录。
+
+在收到真实 HDMI 照片前，不得把本实验标记为“上板通过”。
+
+### 8.7 失败排查顺序
+
+1. 无信号：先回归 `sobel_01_hdmi_pattern`，确认 HDMI 时钟、TMDS 和显示器输入源。
+2. 全黑：检查 `video_locked`、`sobel_done`、`edge_frame_done` 和 `edge_mem` 写入。
+3. 图像错位：检查显示器是否为 720p，并核对 `de`、HS/VS 和 BRAM 读延迟。
+4. 边缘不一致：核对实际提交号、默认阈值 80，并重新运行 XSim。
+5. Program Device 失败：保存 Hardware Manager 完整错误，不要只记录最后一行。
+
+### 8.8 现场必须回传
+
+- 实际分支和完整提交号。
+- 测试日期、板卡型号、Vivado 版本和显示器/采集设备型号。
+- Hardware Manager 识别目标和 Program Device 成功截图或完整日志。
+- 同时包含有效画面、分辨率信息的 HDMI 照片。
+- 一张能确认板卡、JTAG 和 HDMI 接线的照片。
+- 现场 utilization、timing summary 和 DRC 摘要。
+- 若失败：失败步骤、完整错误文本和最后一个正常现象。

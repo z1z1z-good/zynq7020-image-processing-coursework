@@ -21,7 +21,7 @@ module rgb_to_gray (
                        ({8'd0, g} * 16'd150) +
                        ({8'd0, b} * 16'd29);
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             gray_valid <= 1'b0;
             gray       <= 8'd0;

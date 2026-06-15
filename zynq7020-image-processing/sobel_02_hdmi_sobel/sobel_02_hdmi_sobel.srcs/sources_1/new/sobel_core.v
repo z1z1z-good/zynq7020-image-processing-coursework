@@ -23,13 +23,10 @@ module sobel_core #(
 
     reg [7:0] top0;
     reg [7:0] top1;
-    reg [7:0] top2;
     reg [7:0] mid0;
     reg [7:0] mid1;
-    reg [7:0] mid2;
     reg [7:0] bot0;
     reg [7:0] bot1;
-    reg [7:0] bot2;
     reg [7:0] prev2_pixel;
     reg [7:0] prev1_pixel;
 
@@ -47,7 +44,7 @@ module sobel_core #(
 
     integer i;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             edge_valid      <= 1'b0;
             edge_data       <= 8'd0;
@@ -56,22 +53,10 @@ module sobel_core #(
             edge_frame_done <= 1'b0;
             top0 <= 8'd0;
             top1 <= 8'd0;
-            top2 <= 8'd0;
             mid0 <= 8'd0;
             mid1 <= 8'd0;
-            mid2 <= 8'd0;
             bot0 <= 8'd0;
             bot1 <= 8'd0;
-            bot2 <= 8'd0;
-            prev2_pixel <= 8'd0;
-            prev1_pixel <= 8'd0;
-            gx <= 12'sd0;
-            gy <= 12'sd0;
-            abs_gx <= 12'd0;
-            abs_gy <= 12'd0;
-            mag <= 13'd0;
-            out_x <= 16'd0;
-            out_y <= 16'd0;
             flush_active <= 1'b0;
             flush_bottom_row <= 1'b0;
             flush_x <= 16'd0;
@@ -93,13 +78,10 @@ module sobel_core #(
                 end
                 top0 <= 8'd0;
                 top1 <= 8'd0;
-                top2 <= 8'd0;
                 mid0 <= 8'd0;
                 mid1 <= 8'd0;
-                mid2 <= 8'd0;
                 bot0 <= 8'd0;
                 bot1 <= 8'd0;
-                bot2 <= 8'd0;
                 flush_active <= 1'b0;
                 flush_bottom_row <= 1'b0;
                 flush_x <= 16'd0;
@@ -134,28 +116,17 @@ module sobel_core #(
                 prev2_pixel = (gray_y >= 2) ? line0[gray_x] : 8'd0;
                 prev1_pixel = (gray_y >= 1) ? line1[gray_x] : 8'd0;
 
-                if (gray_x == 16'd0) begin
-                    top0 = 8'd0;
-                    top1 = 8'd0;
-                    mid0 = 8'd0;
-                    mid1 = 8'd0;
-                    bot0 = 8'd0;
-                    bot1 = 8'd0;
-                end
-
-                top2 = prev2_pixel;
-                mid2 = prev1_pixel;
-                bot2 = gray;
-
                 out_x = (gray_x >= 1) ? (gray_x - 16'd1) : 16'd0;
                 out_y = (gray_y >= 1) ? (gray_y - 16'd1) : 16'd0;
 
                 if ((gray_x >= 2) && (gray_y >= 2)) begin
-                    gx = -$signed({4'd0, top0}) + $signed({4'd0, top2})
-                         -($signed({4'd0, mid0}) <<< 1) + ($signed({4'd0, mid2}) <<< 1)
-                         -$signed({4'd0, bot0}) + $signed({4'd0, bot2});
-                    gy = -$signed({4'd0, top0}) - ($signed({4'd0, top1}) <<< 1) - $signed({4'd0, top2})
-                         + $signed({4'd0, bot0}) + ($signed({4'd0, bot1}) <<< 1) + $signed({4'd0, bot2});
+                    gx = -$signed({4'd0, top0}) + $signed({4'd0, prev2_pixel})
+                         -($signed({4'd0, mid0}) <<< 1) + ($signed({4'd0, prev1_pixel}) <<< 1)
+                         -$signed({4'd0, bot0}) + $signed({4'd0, gray});
+                    gy = -$signed({4'd0, top0}) - ($signed({4'd0, top1}) <<< 1)
+                         - $signed({4'd0, prev2_pixel})
+                         + $signed({4'd0, bot0}) + ($signed({4'd0, bot1}) <<< 1)
+                         + $signed({4'd0, gray});
 
                     abs_gx = gx[11] ? (~gx + 12'd1) : gx;
                     abs_gy = gy[11] ? (~gy + 12'd1) : gy;
@@ -186,12 +157,21 @@ module sobel_core #(
                 line0[gray_x] <= line1[gray_x];
                 line1[gray_x] <= gray;
 
-                top0 <= top1;
-                top1 <= top2;
-                mid0 <= mid1;
-                mid1 <= mid2;
-                bot0 <= bot1;
-                bot1 <= bot2;
+                if (gray_x == 16'd0) begin
+                    top0 <= 8'd0;
+                    top1 <= prev2_pixel;
+                    mid0 <= 8'd0;
+                    mid1 <= prev1_pixel;
+                    bot0 <= 8'd0;
+                    bot1 <= gray;
+                end else begin
+                    top0 <= top1;
+                    top1 <= prev2_pixel;
+                    mid0 <= mid1;
+                    mid1 <= prev1_pixel;
+                    bot0 <= bot1;
+                    bot1 <= gray;
+                end
             end
         end
     end

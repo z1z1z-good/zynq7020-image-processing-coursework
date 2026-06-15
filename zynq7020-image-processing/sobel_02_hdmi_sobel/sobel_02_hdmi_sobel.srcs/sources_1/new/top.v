@@ -1,8 +1,3 @@
-`include "image_rom_128x72.v"
-`include "rgb_to_gray.v"
-`include "sobel_core.v"
-`include "hdmi_sobel_display.v"
-
 module top(
     input sys_clk,
     output hdmi_oen,

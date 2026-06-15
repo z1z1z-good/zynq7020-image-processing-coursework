@@ -1,0 +1,9 @@
+Experiment 2 fixed-image Sobel threshold statistics
+Image size: 128 x 72 (9216 source pixels)
+Comparison: edge_pixel >= threshold
+
+threshold= 40 white_pixels=1307
+threshold= 80 white_pixels=1274
+threshold=120 white_pixels=1234
+
+Monotonic non-increasing check: passed

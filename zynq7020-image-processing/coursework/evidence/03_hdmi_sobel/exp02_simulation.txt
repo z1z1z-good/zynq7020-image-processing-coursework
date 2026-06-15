@@ -1,0 +1,17 @@
+Experiment 2 XSim summary
+Date: 2026-06-15
+Tool: Vivado/XSim 2023.2
+Device: xc7z020clg400-2
+
+Command:
+vivado.bat -mode batch -nojournal -nolog -source run_exp02_sim.tcl
+
+Result:
+HDMI Sobel full-chain simulation passed
+gray_samples=9216
+edge_writes=9216
+white_hdmi_pixels=5096
+EXP02_SIM=passed
+
+The reduced simulation raster uses 2 x 2 scaling, so 5096 HDMI white pixels
+correspond to 1274 white source pixels at threshold 80.
