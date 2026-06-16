@@ -1,0 +1,29 @@
+实验 5 XSim 仿真说明
+
+工具：Vivado XSim 2023.2（本机未安装 Icarus/VVP，与实验 0 记录一致；README §7.2 的 iverilog
+命令以等价的 XSim 流程 xvlog -> xelab -> xsim 替代）。均为离线逻辑仿真，非上板结果。
+
+1) 轻量显示控制模型自检（仓库既有）
+   sim/display_control_model.v + sim/display_control_model_tb.v
+   6 个定向用例：原图 / 灰度 / 边缘(thr 80,120) / mode=3 叠加 / overlay_enable 叠加。
+   结果见 exp05_display_control_model.txt：display_control_model_tb passed。
+
+2) PL 显示控制自检 testbench（缩小时序 256x144、2x，加快仿真）
+   sim/hdmi_bram_sobel_display_tb.v
+   行为级 BRAM 载入图像区 + 控制字（overlay 配置 mode=3/threshold=80/overlay=0），校验：
+   - HDMI 有效像素数 36864、HS/VS 脉宽计数；
+   - sobel_done 在统计帧内置位（saw_sobel_done）；
+   - 每个有效像素 == 依 dut 内部 display_mode/threshold/overlay_enable/rgb_pixel/edge_pixel/
+     sobel_done 复算的 4 模式显示 mux + 输出门控（逐拍自洽，覆盖输出门控与右下角边界伪影）；
+   - 出现红色叠加像素（red=3844）。
+   结果：EXP05_SELFCHECK_TB=passed active=36864 red=3844
+
+3) 全分辨率渲染逐配置 golden 比对 testbench
+   sim/hdmi_bram_sobel_display_cosim_tb.v（默认 1280x720、10x）
+   行为级 BRAM 载入图像区 + 控制字，捕获第一整帧有效像素，交 exp05_cosim.py render-compare
+   逐像素比对。覆盖 mode=0/1/2/3、阈值 40/80/120、overlay=0/1，结果见 exp05_cosim.txt 第 [8] 项。
+
+命令（Git-Bash，工件写入已忽略的 build/cosim/）：
+  bash tools/cosim/run_exp05_cosim.sh
+  # 仅跑逻辑层（跳过较慢的全分辨率渲染循环）：
+  EXP05_COSIM_QUICK=1 bash tools/cosim/run_exp05_cosim.sh

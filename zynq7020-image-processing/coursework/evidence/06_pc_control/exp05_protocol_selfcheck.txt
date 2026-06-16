@@ -1,0 +1,20 @@
+实验 5 上位机控制显示 协议与算法离线自检
+图像：128 x 72（RGB888, format=0x18）
+图像帧头 0x55aa，行头 0x33cc，控制帧头 0xa55a
+控制字地址：mode=0x9000 threshold=0x9004 overlay=0x9008（字索引 9216/9217/9218）
+图像区最后一像素字节地址 0x8ffc，与控制区不重叠
+
+往返无损：真实图像帧 + 三个控制帧 -> dispatch -> 图像区与控制字逐项一致：通过
+控制帧字节：a5 5a 01 mode / a5 5a 02 threshold / a5 5a 03 overlay：通过
+
+错误注入（返回码须与 main.c 一致）：
+  wrong_width          expected=('frame', -1) got=('frame', -1)
+  wrong_format         expected=('frame', -1) got=('frame', -1)
+  wrong_row            expected=('frame', -2) got=('frame', -2)
+  trunc_after_header   expected=('frame', -5) got=('frame', -5)
+  trunc_mid_pixels     expected=('frame', -7) got=('frame', -7)
+  unknown_cmd          expected=('ctrl', -12) got=('ctrl', -12)
+
+显示模式映射（display_mux 与 hdmi_bram_sobel_display.v 一致）：
+  mode=0 原图 / mode=1 灰度 / mode=2 Sobel 二值 / mode=3 原图+红色边缘
+  非边缘模式下 overlay_enable=1 或 mode=3 时，edge_pixel>=threshold 处叠加 0xff2020

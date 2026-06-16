@@ -1,0 +1,48 @@
+实验 5 无板卡软硬件协同仿真链结果
+
+工具：Python 3.11 (Miniconda) + host gcc (MinGW) + Vivado XSim 2023.2
+一键脚本：tools/cosim/run_exp05_cosim.sh
+中间产物：build/cosim/（已 gitignore，可删除重建）
+
+链路（“字节流是接口”，与方法论 §2 一致）：
+  真实 camera_uart_sender.build_frame_packet 图像打包 + 真实 send_requested_controls 控制帧
+    -> 与本地编码器逐字节比对（证明上位机打包与控制命令一致）
+    -> 合成 UART 字节流(文件)
+    -> 真实 main.c 分发循环(wait_for_packet_start)主机编译运行
+       -> 图像区 framebuffer + 控制字 0x9000/0x9004/0x9008
+       -> 与 golden 图像逐像素 + 控制字逐项比对
+       -> 错误注入返回码核对
+    -> hdmi_bram_sobel_display 全分辨率渲染(xsim) 逐配置捕获 HDMI 帧
+       -> 重建 PNG 与软件 golden(gray+Sobel+四模式显示 mux) 逐像素自动比对
+
+结果：
+[1] 上位机打包：图像 27943 字节、控制 12 字节，与本地编码器逐字节一致
+    EXP05_COSIM_HOST_PACK=match / EXP05_COSIM_HOST_CONTROL=match
+[3] PS 分发：1 图像帧(code 0) + 3 控制帧(code 1)；控制字 mode=3 threshold=40 overlay=1
+[4] framebuffer 校验：图像区 9216 词与 golden 一致；控制字 0x9000/4/8 = 3/40/1 与下发一致
+    EXP05_COSIM_FB=match image_words=9216 ctrl=mode=3,thr=40,ovl=1
+[5] 错误注入（首个分发包返回码，须与 main.c 一致）：
+    wrong_width=-1 wrong_format=-1 wrong_row=-2 trunc_after_header=-5 trunc_mid_pixels=-7 unknown_cmd=-12
+    EXP05_COSIM_ERRORS=match
+[7] PL 显示自检 tb（缩小时序）：EXP05_SELFCHECK_TB=passed active=36864 red=3844
+[8] 全分辨率逐配置渲染比对（1280x720，每配置 921600 像素）：
+    orig     mode=0           match (corner_artifact=1)
+    gray     mode=1           match (corner_artifact=1)
+    edge40   mode=2 thr=40    match (corner_artifact=0)
+    edge80   mode=2 thr=80    match (corner_artifact=0)
+    edge120  mode=2 thr=120   match (corner_artifact=0)
+    overlay  mode=3           match (corner_artifact=1)
+    ovlon    mode=0 ovl=1     match (corner_artifact=1)
+EXP05_COSIM_CHAIN=passed
+
+已知右下角 1 像素边界伪影（corner_artifact=1）：当前 720p 时序仅有前消隐区
+（H_START=370，有效区 [370,1650) 直达 H_TOTAL；垂直同理），帧末右下角像素 (1279,719)
+经 2 拍显示流水输出时已进入下一帧扫描起点、sobel_done 复位为 0，被输出门控为黑。仅此单像素、
+肉眼不可见；其余 921599 像素严格一致。边缘模式下该角点本为黑色边界像素，故无差异
+(corner_artifact=0)。该伪影与显示模式无关，是给定 RTL 的固有边界行为，未改动 RTL。
+
+边缘像素阈值统计（128x72 源图，见 exp05_threshold_stats.txt）：
+  threshold=40 -> 1139, threshold=80 -> 1109, threshold=120 -> 1093（随阈值升高单调不增加）
+
+说明：本结果只覆盖逻辑/协议/格式/显示/算法层一致性（“协同仿真通过”），不代表真实串口/
+JTAG/HDMI/DDR/上板通过；上板验证待现场完成。

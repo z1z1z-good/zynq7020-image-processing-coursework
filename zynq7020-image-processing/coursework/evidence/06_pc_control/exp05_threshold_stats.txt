@@ -1,0 +1,13 @@
+实验 5 显示控制阈值与边缘像素统计
+图像尺寸：128 x 72（9216 源像素）
+灰度：gray = (77*R + 150*G + 29*B) >> 8
+Sobel：mag = |gx| + |gy| 饱和 255，1 像素边界置 0
+边缘叠加颜色：OVERLAY_COLOR = #ff2020
+比较规则：edge_pixel >= threshold 视为边缘
+
+threshold= 40 edge_pixels=1139
+threshold= 80 edge_pixels=1109
+threshold=120 edge_pixels=1093
+
+overlay=on(原图模式)红色叠加像素数 (threshold=80)：1109
+边缘像素数随阈值升高单调不增加检查：通过
