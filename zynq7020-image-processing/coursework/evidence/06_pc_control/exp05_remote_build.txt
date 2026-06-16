@@ -1,0 +1,28 @@
+实验 5 远程全局综合/实现/bitstream 结果
+
+环境：Vivado 2023.2，器件 xc7z020clg400-2，非项目全局综合流程（不派生子进程）。
+脚本：run_exp05_bitstream.tcl
+  vivado -mode batch -source run_exp05_bitstream.tcl
+  # 注：深层工作树路径会触发 Windows 260 字符 MAX_PATH（processing_system7 IP 生成目录超限），
+  #     本机用短路径构建（committed 脚本默认仍写 build/，正常环境路径较短不受影响）：
+  EXP05_BUILD_DIR=D:/codex_prj/x5b vivado -mode batch -source run_exp05_bitstream.tcl
+
+Block Design：在隔离 build 工程内全新重建 ps_uart_bram_hdmi（PS7 + SmartConnect +
+  AXI BRAM Controller + Block Memory Generator，64KB），synth_checkpoint_mode None 全局综合，
+  IP 版本随 2023.2 动态解析（避免 2017.4 版本号不被支持）；未触碰仓库已提交的 2017.4 BD。
+源码：top.v / hdmi_pl_top.v / hdmi_bram_sobel_display.v / rgb_to_gray.v（同步复位）/
+  sobel_core.v（同步复位）/ video_clock / rgb2dvi 归档源 + 同名包装 new/rgb2dvi_0.vhd。
+
+结果（EXP05_BUILD=passed）：
+  综合 / 实现 / 布局布线 / write_bitstream 全部成功。
+  时序：WNS=0.325 ns, TNS=0.000 ns, WHS=0.043 ns, THS=0.000 ns, WPWS=1.102 ns, TPWS=0.000 ns；
+        “All user specified timing constraints are met”（建立/保持/脉宽均满足）。
+  DRC：Violations found: 0（Design State: Fully Routed）。
+  资源：10795 LUT (20.29%), 4113 FF (3.87%), 20 Block RAM Tile (14.29%, RAMB36E1),
+        0 DSP, 10 Bonded IOB, 4 BUFGCTRL, 1 MMCME2_ADV。
+  产物（不提交 Git，写入 build_dir）：top.bit (约 4.0 MB), ps_uart_bram_hdmi.xsa (约 290 KB),
+        top_routed.dcp (约 7.6 MB)。
+  报告证据：exp05_utilization.txt / exp05_timing_summary.txt / exp05_drc.txt。
+
+说明：综合/实现/bitstream 在远程通过，硬件平台 XSA 已导出供 Vitis 编译 PS 程序。
+真实 JTAG 下载、上电运行、HDMI 显示与串口控制验证待现场完成（“构建通过” != “上板通过”）。
