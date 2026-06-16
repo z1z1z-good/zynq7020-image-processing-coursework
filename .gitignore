@@ -147,6 +147,7 @@ labtool_webtalk*.log
 # Local coursework build artifacts
 zynq7020-image-processing/sobel_00_rtl_sim/build/
 zynq7020-image-processing/sobel_01_hdmi_pattern/build/
+zynq7020-image-processing/sobel_02_hdmi_sobel/build/
 zynq7020-image-processing/sobel_03_uart_hdmi/build/
 zynq7020-image-processing/sobel_03_uart_hdmi/clockInfo.txt
 zynq7020-image-processing/sobel_04_uart_sobel_hdmi/build/

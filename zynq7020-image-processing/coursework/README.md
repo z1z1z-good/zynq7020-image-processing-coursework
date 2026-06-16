@@ -153,6 +153,19 @@ git log --oneline --left-right main...upstream/main
 [`sobel_01_hdmi_pattern/README.md`](../sobel_01_hdmi_pattern/README.md) 的“远程开发结果与现场上板流程”。
 在收到真实 HDMI 照片和现场日志前，实验 1 不标记为“上板通过”。
 
+## 实验 2 远程开发结果
+
+2026-06-15 在 `exp/02-hdmi-sobel` 完成固定图片 Sobel 远程开发阶段：
+
+1. 在 PL 完成 RGB→灰度→Sobel 数据链，HDMI 显示二值边缘图，默认阈值 `80`。
+2. XSim 全链仿真通过（`EXP02_SIM=passed`）：灰度样本 `9216`、Sobel 写入 `9216`（每地址各一次）、`edge_frame_done` 一次脉冲、HDMI 时序与 10x 缩放地址正确。
+3. 阈值对比（白色源像素数）：`40 -> 1307`、`80 -> 1274`、`120 -> 1234`（随阈值升高单调不增加）。
+4. 综合、实现、bitstream 通过；WNS `1.578 ns`、TNS `0 ns`、WHS `0.080 ns`、THS `0 ns`；`2842` LUT、`2353` FF、`14` BRAM36、`0` DSP、`1` MMCM；DRC `0` errors、`1` warning（`ZPS7-1`，纯 PL 设计未实例化 PS7，预期内）。
+
+仿真、阈值对比、预期边缘图、资源、时序、DRC 证据见
+[`evidence/03_hdmi_sobel`](evidence/03_hdmi_sobel/README.md)。
+在收到真实 HDMI 照片和现场日志前，实验 2 不标记为“上板通过”。
+
 ## 实验 3 远程开发结果
 
 2026-06-15 在 `exp/03-uart-hdmi` 完成 PL 远程开发阶段，PS 正式 Vitis 构建仍待闭环：
