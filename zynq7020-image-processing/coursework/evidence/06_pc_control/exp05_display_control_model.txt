@@ -1,0 +1,32 @@
+实验 5（sobel_05_pc_control_display）轻量显示控制模型仿真
+
+工具：Vivado XSim 2023.2
+说明：本机未安装 Icarus/VVP（与实验 0 记录一致），README §7.2 的 iverilog 命令
+      以等价的 XSim 流程替代；仅为离线逻辑仿真，非上板结果。
+
+被测：
+  sim/display_control_model.v     显示模式/阈值/彩色叠加输出选择的纯组合模型
+  sim/display_control_model_tb.v  6 个定向用例
+
+命令（Git-Bash，工件写入已忽略的 build/sim_dcm/）：
+  xvlog display_control_model.v display_control_model_tb.v
+  xelab display_control_model_tb -s dcm_tb -timescale 1ns/1ps
+  xsim dcm_tb -runall
+
+覆盖用例（输入 rgb_pixel=0x204080, edge_pixel=90）：
+  mode=0 原图          -> 0x204080
+  mode=1 灰度          -> 0x3d3d3d   ((77*32+150*64+29*128)>>8 = 61)
+  mode=2 边缘 thr=80   -> 0xffffff   (edge 90>=80 -> 白)
+  mode=2 边缘 thr=120  -> 0x000000   (edge 90<120 -> 黑)
+  mode=3 叠加 thr=80   -> 0xff2020   (非边缘模式叠加红边)
+  mode=0 overlay=1     -> 0xff2020
+
+结果：
+  display_control_model_tb passed
+  $finish called at time : 6 ns
+
+结论：显示组合逻辑（原图 / 灰度 / 边缘二值 / 红色边缘叠加 + 阈值判断）与
+      hdmi_bram_sobel_display.v 的显示 mux 完全一致。
+
+注：此仅覆盖显示选择逻辑。完整"上位机 -> PS -> AXI BRAM（图像区+控制字）-> PL 渲染
+    -> HDMI"无板卡协同仿真见 exp05_cosim.txt 与 exp05_simulation.txt（里程碑 2）。
