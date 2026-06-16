@@ -1,0 +1,25 @@
+实验 5 PS 应用源码编译检查
+
+环境：无开发板远程阶段。本自动化环境 XSCT 连接 Vitis 后端超时（Timeout while
+establishing a connection with Vitis），无法生成完整 BSP/ELF；完整 Vitis 构建脚本见
+build_exp05_ps_app.tcl（在正常 Vitis 2023.2 环境运行）。此处用 Vitis 2023.2 自带 ARM
+交叉编译器做源码级 -c 编译检查（语法 / 类型 / 调用签名 / 控制流，不链接 BSP）。
+
+工具：arm-none-eabi-gcc 12.2.0
+      (D:/Vivado/Vitis/2023.2/gnu/aarch32/nt/gcc-arm-none-eabi/bin/arm-none-eabi-gcc.exe)
+源码：ps_uart_control_bram_app/src/main.c
+桩头：tools/ps_syntax_check/include（与 exp3/4 同一套 BSP API 桩，见该目录 README）
+
+命令：
+  arm-none-eabi-gcc -c -Wall -Wextra -mcpu=cortex-a9 \
+      -I tools/ps_syntax_check/include \
+      ps_uart_control_bram_app/src/main.c -o main.o
+
+结果：退出码 0，0 error / 0 warning，生成 main.o（5464 字节）。
+
+覆盖的代码路径：UART 初始化、wait_for_packet_start 双同步分发、receive_frame_body 图像
+接收、handle_control_packet 控制帧解析（cmd=1 mode / cmd=2 threshold / cmd=3 overlay）、
+控制字写入 0x9000 / 0x9004 / 0x9008、control_print_state 串口回显。
+
+说明：此为源码级编译检查，非真实 BSP 链接，也非上板运行；完整 ELF 构建与上板验证待现场
+（正常 Vitis 环境 + 开发板）完成。
