@@ -22,6 +22,11 @@ parameter V_ACTIVE = 16'd720;
 parameter V_FP     = 16'd5;
 parameter V_SYNC   = 16'd5;
 parameter V_BP     = 16'd20;
+// 实验 4 基础扩展：彩色边缘标记。edge_pixel >= EDGE_THRESHOLD 的像素用 EDGE_COLOR
+// 突出显示，其余像素为黑色。只改 edge_pixel -> RGB 显示映射，不影响 edge_mem 中的
+// 原始 8 bit Sobel 强度，也不动 BRAM 扫描、rgb_to_gray 和 sobel_core 数据通路。
+parameter [7:0]  EDGE_THRESHOLD = 8'd80;
+parameter [23:0] EDGE_COLOR     = 24'h00ff00;
 
 localparam H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP;
 localparam V_TOTAL = V_ACTIVE + V_FP + V_SYNC + V_BP;
@@ -110,9 +115,10 @@ assign edge_wr_addr = {edge_y[6:0], 7'b0} + {7'd0, edge_x[6:0]};
 assign hs = hs_reg_d0;
 assign vs = vs_reg_d0;
 assign de = de_reg_d0;
-assign rgb_r = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
-assign rgb_g = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
-assign rgb_b = (de_reg_d0 && sobel_done) ? edge_pixel : 8'h00;
+wire edge_on = de_reg_d0 && sobel_done && (edge_pixel >= EDGE_THRESHOLD);
+assign rgb_r = edge_on ? EDGE_COLOR[23:16] : 8'h00;
+assign rgb_g = edge_on ? EDGE_COLOR[15:8]  : 8'h00;
+assign rgb_b = edge_on ? EDGE_COLOR[7:0]   : 8'h00;
 
 assign bram_we = 4'b0000;
 assign bram_din = 32'd0;

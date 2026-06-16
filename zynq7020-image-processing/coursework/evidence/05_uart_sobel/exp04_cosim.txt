@@ -1,0 +1,31 @@
+实验 4 UART -> PS -> BRAM -> PL Sobel 无板卡软硬件协同仿真链运行记录
+日期：2026-06-16
+分支：exp/04-uart-sobel（基线提交 d962646 起）
+工具：Vivado/XSim 2023.2、host gcc 8.1.0 (mingw64)、Python 3.11 (Miniconda3)
+命令：bash sobel_04_uart_sobel_hdmi/tools/cosim/run_exp04_cosim.sh
+说明：仅协同仿真（协议/格式/算法/显示映射逐像素）；真实 UART/JTAG/HDMI/DDR 待现场验证。
+----------------------------------------------------------------------
+[1/8] gen real UART byte stream + golden framebuffer (assert host packing)
+EXP04_COSIM_HOST_PACK=match bytes=27943
+EXP04_COSIM_GOLDEN_FB_WORDS=9216
+EXP04_COSIM_ERROR_CASES=6
+[2/8] build real-main.c PS host model
+[3/8] run real PS parser on the real byte stream -> framebuffer
+PS_MODEL_CODE=0
+[4/8] check PS-parsed framebuffer == golden (original RGB)
+EXP04_COSIM_FB=match words=9216
+[5/8] error-injection return codes vs real parser
+  wrong_width -> -1
+  wrong_format -> -1
+  wrong_row -> -2
+  trunc_before_header -> -3
+  trunc_after_header -> -5
+  trunc_mid_pixels -> -7
+EXP04_COSIM_ERRORS=match
+[6/8] compile RTL + testbenches (xvlog)
+[7/8] RTL self-check (display mapping / timing / sobel_done)
+EXP04_SELFCHECK_TB=passed active=36864 green=4436
+[8/8] RTL full-resolution render + reconstruct PNG + pixel compare vs golden
+EXP04_COSIM_CAPTURE=ok pixels=921600
+EXP04_COSIM_PNG=match pixels=921600
+EXP04_COSIM_CHAIN=passed

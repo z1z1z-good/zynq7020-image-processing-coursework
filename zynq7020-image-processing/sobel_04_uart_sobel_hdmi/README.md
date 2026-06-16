@@ -36,7 +36,7 @@ PC 摄像头 / 图片
 
 ```text
 sobel_03: HDMI 显示串口收到的原始 RGB 图像
-sobel_04: HDMI 显示 PL Sobel 运算后的灰度边缘图
+sobel_04: HDMI 显示 PL Sobel 运算后的边缘图（本分支默认彩色边缘，详见第 11、13 节）
 ```
 
 当前保持已经调通的稳定串口配置：
@@ -128,6 +128,11 @@ B = edge
 ```
 
 最终显示为黑白边缘图。
+
+> 注：以上 `R = G = B = edge` 是教师基线映射。**本分支默认已启用第 11、13 节的「彩色边缘标记」扩展**：
+> `edge_pixel >= EDGE_THRESHOLD`（默认 `8'd80`）输出 `EDGE_COLOR`（默认 `24'h00ff00` 绿），否则输出黑色；
+> `edge_mem` 仍保存原始 8 bit Sobel 强度，BRAM 扫描 / `rgb_to_gray` / `sobel_core` 数据通路不变。
+> 要回到基线黑白边缘，把 `EDGE_COLOR` 设为灰阶或恢复 `R = G = B = edge_pixel` 映射即可。
 
 ## 4. Vivado 使用流程
 
@@ -282,7 +287,7 @@ HDMI 显示测试图经过 PL Sobel 后的边缘图
 HDMI 显示摄像头画面的 Sobel 边缘检测结果
 ```
 
-画面是黑白边缘图，不再是彩色原图。
+画面是 Sobel 边缘图，不再是彩色原图。本分支默认输出黑底**绿色**边缘（第 11、13 节的彩色边缘扩展，默认 `EDGE_THRESHOLD=80`、`EDGE_COLOR=24'h00ff00`）；如需基线黑白灰度边缘，见第 3 节末尾说明。
 
 ## 9. 帧率说明
 
@@ -399,6 +404,14 @@ frame error -5/-6/-7
 | 彩色边缘标记 | `hdmi_bram_sobel_display.v` 的 RGB 输出映射 | 边缘用红色、绿色或蓝色突出显示 |
 | Sobel 阈值参数对比 | `hdmi_bram_sobel_display.v` 或 `sobel_core.v` 中的固定阈值常量 | 至少对比 3 个阈值下的 HDMI 效果，并记录资源利用率 |
 
+本分支已实现 **彩色边缘标记** 扩展：`hdmi_bram_sobel_display.v` 新增参数
+`EDGE_THRESHOLD`（默认 `8'd80`）与 `EDGE_COLOR`（默认 `24'h00ff00`，绿色）。
+`edge_pixel >= EDGE_THRESHOLD` 的像素以 `EDGE_COLOR` 突出显示，其余为黑色；只改
+`edge_pixel -> RGB` 显示映射，`edge_mem` 仍保存原始 8 bit Sobel 强度，不影响 BRAM 扫描、
+`rgb_to_gray` 和 `sobel_core` 数据通路。换 `EDGE_COLOR` 为 `24'hff0000` / `24'h0000ff`
+即可改红 / 蓝。离线另对比阈值 `40`、`80`、`120` 的边缘像素数（见
+`coursework/evidence/05_uart_sobel/exp04_threshold_stats.txt`）。详见下文第 13 节。
+
 ## 12. 后续实验入口
 
 `sobel_04` 是后续上位机控制实验的基础工程。完成本实验后，进入 `sobel_05_pc_control_display`，在本工程基础上继续完成：
@@ -408,3 +421,139 @@ frame error -5/-6/-7
 3. 上位机控制灰度图、边缘图和叠加图显示模式切换。
 
 这些内容不再作为 `sobel_04` 的普通选做项，而是在 `sobel_05_pc_control_display` 中作为基础实验要求完成。
+
+## 13. 远程开发结果与现场上板流程
+
+### 13.1 当前状态
+
+- 分支：`exp/04-uart-sobel`（从与 `origin/main` 一致的 `main` 创建）
+- 工具：Vivado/XSim 2023.2、Vitis 2023.2、arm-none-eabi-gcc 12.2.0、host gcc 8.1.0、Python 3.11
+- 器件：`xc7z020clg400-2`
+- 基础扩展：彩色边缘标记，默认 `EDGE_THRESHOLD = 8'd80`、`EDGE_COLOR = 24'h00ff00`（绿色）
+- 状态：远程协同仿真与构建通过，待现场上板验证
+
+获取现场实际测试的提交号：
+
+```powershell
+git switch exp/04-uart-sobel
+git pull --ff-only origin exp/04-uart-sobel
+git rev-parse HEAD
+```
+
+### 13.2 远程已验证（不等于上板通过）
+
+证据位于 `coursework/evidence/05_uart_sobel/`：
+
+- 无板卡软硬件协同仿真链（`exp04_cosim.txt`）：真实 `camera_uart_sender.build_frame_packet`
+  打包与本地编码器逐字节一致（27943 byte）；真实 `main.c receive_frame` 解析产出的原始
+  RGB framebuffer 与 golden 逐像素一致（9216 word）；错误码 `-1/-2/-3/-5/-7` 与 `main.c` 一致；
+  RTL 渲染 `1280x720` 帧（921600 像素）与软件 golden（gray + Sobel + 彩色边缘映射）逐像素一致。
+- XSim 自检（`exp04_simulation.txt`）：显示映射、HDMI 时序、`sobel_done`、彩色边缘像素均通过。
+- 综合 / 实现 / 时序 / DRC / bitstream（`exp04_remote_build.txt` 等）：`EXP04_BUILD=passed`，
+  WNS `+13.453 ns`、TNS `0`、WHS `+0.058 ns`、THS `0`；`4446` LUT、`3662` FF、`18` BRAM36、
+  `0` DSP、`1` MMCM；DRC `0` errors（`20` 个 REQP-1839 + `1` 个 CHECK-3 warning，已说明，不阻塞）。
+- PS 源码检查（`exp04_ps_build.txt`）：`arm-none-eabi-gcc 12.2.0` 源码级编译 `main.c` 0 error、
+  0 warning；完整 Vitis BSP/ELF 待正常 Vitis 环境（XSCT 无头超时）。
+
+诚实边界：以上仅覆盖协议 / 格式 / 算法 / 显示映射与远程构建；真实 JTAG、UART、HDMI 物理输出、
+DDR 与完整 Vitis ELF 必须现场验证，未收到真实照片与日志前不标记为"上板通过"。
+
+### 13.3 所需硬件与接线
+
+- 目标为 `xc7z020clg400-2` 的 ZYNQ7020 开发板、配套电源与 JTAG 下载线。
+- USB 串口线（PS UART1，MIO48/49，`115200 8N1`）。
+- HDMI 线和支持 `1280 x 720` 的显示器或采集设备。
+- 拍摄 HDMI 画面与板卡接线的相机。
+
+断电连接 JTAG、HDMI、USB 串口和电源；HDMI 接显示器输入并选对输入源；上电后确认
+Hardware Manager 能识别目标器件，确认设备管理器中开发板的 COM 口。
+
+### 13.4 用户侧构建
+
+命令行（本目录，全局综合，可删除重建）：
+
+```powershell
+& D:\Vivado\Vivado\2023.2\bin\vivado.bat -mode batch -nojournal -nolog -source run_exp04_bitstream.tcl
+```
+
+生成（不提交 Git）：`build\vivado_2023_2\top.bit` 与 `build\vivado_2023_2\ps_uart_bram_hdmi.xsa`。
+
+Vivado GUI 查看：`File -> Open Project` 打开 `build\vivado_2023_2\exp04_build.xpr`，在
+`Open Implemented Design` 中查看 Report Timing Summary / Utilization / DRC。原始 2017.4 XPR
+只作基线，不要直接升级或覆盖。
+
+PS 程序（正常 Vitis 2023.2 环境）：
+
+```powershell
+& D:\Vivado\Vitis\2023.2\bin\xsct.bat build_exp04_ps_app.tcl
+```
+
+或在 Vitis GUI 中用 `ps_uart_bram_hdmi.xsa` 新建 platform / standalone domain / BSP，新建空应用并
+复制 `ps_uart_sobel_bram_app/src/main.c` 后编译。
+
+### 13.5 下载与运行
+
+1. 打开 Hardware Manager → Open Target → Auto Connect，确认识别到 Zynq-7020。
+2. Program Device，bitstream 指向 `build\vivado_2023_2\top.bit`。
+3. 运行 `ps_uart_bram_app`，串口（`115200 8N1`）应打印：
+
+```text
+PS UART PL Sobel HDMI display
+BRAM base: 0x40000000, baud: 115200, image: 128x72
+waiting for frame header
+```
+
+4. 关闭串口调试助手（同一 COM 口不能被两个程序占用），用上位机发送图片：
+
+```powershell
+conda activate fpga
+cd ..\host_camera_uart
+python camera_uart_sender.py --port COM7 --baud 115200 --image test.jpg --once --preview
+python camera_uart_sender.py --port COM7 --baud 115200 --camera 0 --fps 0.2 --preview
+```
+
+不稳定时增加 `--line-delay 0.001`。
+
+### 13.6 预期现象
+
+- 只下载 bitstream + 运行 PS：HDMI 显示内置测试图经 PL Sobel 后的彩色边缘（默认绿色边缘、黑色背景）。
+- 发送图片后：串口打印 `received frame 1/2/...`，HDMI 显示输入图像的绿色 Sobel 边缘（背景黑）。
+
+### 13.7 阈值与边缘颜色调整
+
+- `EDGE_THRESHOLD`（默认 `80`）控制判定为边缘的强度门限，越高边缘越少。
+- `EDGE_COLOR`（默认 `24'h00ff00`）控制边缘颜色，可改 `24'hff0000`（红）/`24'h0000ff`（蓝）。
+- 离线阈值对比图与统计：`coursework/evidence/05_uart_sobel/exp04_edge_threshold_{40,80,120}.png`
+  与 `exp04_threshold_stats.txt`（边缘像素数随阈值升高单调不增加）。
+- 现场如需对比阈值，修改参数后重新生成 bitstream，分别拍照记录。
+
+### 13.8 通过标准
+
+1. 显示器稳定识别 `1280 x 720`，连续保持至少 30 秒。
+2. 画面为黑色背景上的彩色（默认绿色）Sobel 边缘，对准有明显轮廓的物体边缘清晰。
+3. 串口能持续打印 `received frame N`，画面随输入更新（低帧率属设计限制，UART 带宽约 11520 byte/s）。
+4. Program Device、板卡型号、Vivado/Vitis 版本与实际提交号均有记录。
+
+收到真实 HDMI 照片与现场日志前，本实验不标记为"上板通过"。
+
+### 13.9 失败排查顺序
+
+1. 串口无 `PS UART PL Sobel HDMI display`：确认运行的是 sobel_04 的 ELF、COM 口与 `115200 8N1`、
+   bitstream 为 sobel_04；若打印 `PS UART BRAM HDMI display` 说明跑的是 sobel_03 旧 ELF。
+2. HDMI 黑屏：先回归 `sobel_03_uart_hdmi` 验证 HDMI 基线；检查显示器是否支持 720p、`video_clock`
+   与 `rgb2dvi_0`、`hdmi_out_test.xdc`、`video_locked` 与 `sobel_done`。
+3. 显示原图而非边缘：确认 `hdmi_pl_top.v` 例化 `hdmi_bram_sobel_display`、工程含 `rgb_to_gray.v`/
+   `sobel_core.v`、已重新 Generate Bitstream 并 Program。
+4. 边缘不明显：对准黑白反差明显的物体，必要时调低 `EDGE_THRESHOLD`。
+5. `frame error -1/-2/-5/-6/-7`：核对 `--baud 115200`、宽高 `128x72`、降低 `--fps`、加 `--line-delay`。
+6. Program Device 失败：保存 Hardware Manager 完整错误，不要只记录最后一行。
+
+### 13.10 现场必须回传
+
+- 实际分支和完整提交号、测试日期、板卡型号、Vivado/Vitis 版本、COM 口、显示设备型号。
+- Hardware Manager 识别目标与 Program Device 成功截图或完整日志。
+- PS 串口启动信息与 `received frame` 完整文本。
+- HDMI 显示彩色 Sobel 边缘的照片（含分辨率信息），以及一张能确认板卡 / JTAG / HDMI / USB 串口接线的照片。
+- 若做了阈值或边缘颜色对比：各参数下的 HDMI 照片。
+- 现场 utilization、timing summary 与 DRC 摘要。
+- 若失败：失败步骤、完整错误文本和最后一个正常现象。

@@ -13,7 +13,7 @@
 | 个人私有远端 `origin` | 已配置并完成首次推送 |
 | Vivado / Vitis | Vivado 2023.2 已完成实验 1、实验 3 隔离构建；实验 3 PS 源码仅完成 ARM GNU 静态编译检查，正式 Vitis/BSP/ELF 构建待完成 |
 | Python 上位机环境 | Python 3.11，基础依赖已验证 |
-| 实验 0 至实验 5 | 实验 0 已通过；实验 1 远程阶段完成；实验 2 在 `exp/02-hdmi-sobel` 分支已完成远程阶段；实验 3 的 PL 阶段通过，正式 Vitis 构建和现场验证待完成；实验 4、实验 5 尚未开始 |
+| 实验 0 至实验 5 | 实验 0 已通过；实验 1 远程阶段完成；实验 2 在 `exp/02-hdmi-sobel` 分支已完成远程阶段；实验 3 的 PL 阶段通过，正式 Vitis 构建和现场验证待完成；实验 4 的 PL Sobel 阶段已完成远程开发（彩色边缘扩展、协同仿真、综合/实现/bitstream 与 PS 源码检查通过，待现场）；实验 5 尚未开始 |
 | 开发板实机测试 | 等待板卡和连接条件 |
 
 源码存在不等于实验已经通过。只有实际运行并保存证据后，才更新实验状态。
@@ -43,7 +43,7 @@
 | `exp01`     | HDMI 固定图片                     | 蓝色边框扩展、XSim、实现和 bitstream 通过；待现场上板 |
 | `exp02`     | 固定图片 Sobel                    | 全链 XSim、实现和 bitstream 通过；待现场 HDMI 验证 |
 | `exp03`     | PC UART -> PS -> BRAM -> HDMI | 边框扩展、协议黄金模型自检、XSim、实现、bitstream 与 PS 源码检查通过；正式 Vitis 构建和现场上板待完成 |
-| `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 未开始                         |
+| `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 彩色边缘标记扩展、协同仿真链、XSim 自检、综合/实现/bitstream 与 PS 源码检查通过；完整 Vitis 构建和现场上板待完成 |
 | `exp05`     | PC 控制模式、阈值和叠加                 | 远程协同仿真 + 综合/实现/DRC/bitstream + PS 源码检查通过；待现场上板 |
 | `extension` | 上位机缩放策略扩展                     | 未开始                         |
 
@@ -176,6 +176,33 @@ git log --oneline --left-right main...upstream/main
 现场下载、运行、HDMI 验收和回传清单见
 [`sobel_03_uart_hdmi/README.md`](../sobel_03_uart_hdmi/README.md) 的“远程开发结果与现场上板流程”。
 在收到真实 HDMI 照片、串口日志和 Hardware Manager 记录前，实验 3 不标记为“上板通过”。
+
+## 实验 4 远程开发结果
+
+2026-06-16 在 `exp/04-uart-sobel` 完成 PL Sobel 远程开发阶段，PS 完整 Vitis 构建仍待闭环：
+
+1. 从与 `origin/main` 一致的 `main`（含实验 3 与协同仿真方法论）创建分支，未修改实验 3、实验 5。
+2. 完成“彩色边缘标记”基础扩展：`hdmi_bram_sobel_display.v` 新增 `EDGE_THRESHOLD`（默认 `80`）和
+   `EDGE_COLOR`（默认 `24'h00ff00` 绿色），`edge_pixel >= EDGE_THRESHOLD` 的像素以彩色突出、其余为黑色；
+   仅改显示映射，`edge_mem` 仍保存原始 8 bit Sobel 强度，不影响 BRAM 扫描、`rgb_to_gray` 和 `sobel_core`。
+3. 复用实验 3 的无板卡协同仿真方法论扩到 Sobel：新增 RGB→灰度→Sobel 软件 golden（与 `sobel_core.v`/
+   `rgb_to_gray.v` 一致），真实 `camera_uart_sender` 打包与本地编码逐字节一致，真实 `main.c` 解析的
+   原始 RGB framebuffer 与 golden 逐像素一致，错误码 `-1/-2/-3/-5/-7` 一致；RTL 渲染 `1280x720`
+   边缘帧（921600 像素）与软件 golden 逐像素一致（`EXP04_COSIM_CHAIN=passed`）。
+4. XSim 自检通过：显示映射、HDMI 时序、`sobel_done` 和彩色边缘像素（`active=36864 green=4436`）。
+5. 隔离 Tcl 工程全局综合重建 PS7 + AXI BRAM Block Design（IP 版本随 2023.2 解析），未覆盖 2017.4 BD；
+   综合、实现、bitstream 与 XSA 导出通过。
+6. WNS `+13.453 ns`、TNS `0`、WHS `+0.058 ns`、THS `0`；`4446` LUT、`3662` FF、`18` BRAM36、`0` DSP、
+   `1` MMCM；DRC `0` errors（`20` 个 REQP-1839 + `1` 个 CHECK-3 warning，源于 `sobel_core` 异步复位
+   驱动 `edge_mem` 地址，已说明、不阻塞）。
+7. PS 程序 `main.c`（与实验 3 接收逻辑一致）用 `arm-none-eabi-gcc 12.2.0` 源码级编译 0 error、0 warning；
+   完整 Vitis BSP/app/ELF 脚本为 `build_exp04_ps_app.tcl`，本环境 XSCT 连接超时，正式构建尚未完成。
+
+仿真、协同仿真、阈值对比、预期 HDMI 图、资源、时序、DRC 和 PS 编译证据见
+[`evidence/05_uart_sobel`](evidence/05_uart_sobel/README.md)。
+现场下载、运行、HDMI 验收和回传清单见
+[`sobel_04_uart_sobel_hdmi/README.md`](../sobel_04_uart_sobel_hdmi/README.md) 的“远程开发结果与现场上板流程”。
+在收到真实 HDMI 照片、串口日志和 Hardware Manager 记录前，实验 4 不标记为“上板通过”。
 
 ## 实验 5 远程开发结果
 

@@ -119,6 +119,23 @@ coursework/evidence/04_uart_hdmi/exp03_cosim.txt    结果证据
 - co-sim testbench 捕获 **Sobel 输出帧**，与软件 golden 逐像素或按阈值二值化比对；
   阈值复用实验 2 的 `EDGE_THRESHOLD` 思路，离线对比多个阈值的白边像素数。
 
+实验 4 参考实现（worked example，已在 `exp/04-uart-sobel` 实现）：
+
+```text
+sobel_04_uart_sobel_hdmi/tools/generate_exp04_expected.py        图像/协议 golden + gray/Sobel/彩色边缘 golden + 40/80/120 阈值对比
+sobel_04_uart_sobel_hdmi/tools/cosim/exp04_cosim.py              gen（真实打包+golden）/check-fb/render-compare
+sobel_04_uart_sobel_hdmi/tools/cosim/ps_protocol_model.c         纳入真实 exp4 main.c 的 PS 主机模型（接收逻辑与实验 3 相同）
+sobel_04_uart_sobel_hdmi/sim/hdmi_bram_sobel_display_cosim_tb.v  全分辨率 Sobel 边缘帧渲染捕获 testbench
+sobel_04_uart_sobel_hdmi/sim/hdmi_bram_sobel_display_tb.v        显示映射 / 时序 / sobel_done 自检 testbench
+sobel_04_uart_sobel_hdmi/tools/cosim/run_exp04_cosim.sh          一键编排
+coursework/evidence/05_uart_sobel/exp04_cosim.txt                结果证据
+```
+
+运行（Git-Bash）：`bash sobel_04_uart_sobel_hdmi/tools/cosim/run_exp04_cosim.sh`，
+通过标志为 `EXP04_COSIM_CHAIN=passed`。基础扩展取「彩色边缘标记」（`edge_pixel >= EDGE_THRESHOLD`
+输出 `EDGE_COLOR`），软件 golden 的 gray/Sobel 与 `rgb_to_gray.v`/`sobel_core.v` 一致，全分辨率
+渲染 `1280x720`（921600 像素）与 golden 逐像素一致。
+
 ## 6. 扩展到实验 5（上位机控制显示）
 
 - 控制帧 `0xA5 0x5A cmd value`：`camera_uart_sender.send_control_command` 已实现，

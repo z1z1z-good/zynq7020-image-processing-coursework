@@ -1,0 +1,33 @@
+实验 4 PS 应用编译验证
+==============================
+
+日期：2026-06-16
+分支：exp/04-uart-sobel
+对象：sobel_04_uart_sobel_hdmi/ps_uart_sobel_bram_app/src/main.c
+      （与 SDK 工作区 sobel_04_uart_sobel_hdmi.sdk/ps_uart_bram_app/src/main.c 内容一致）
+
+说明：实验 4 的 PS 接收逻辑与实验 3 完全一致（解析 128x72 RGB888 帧并把
+0x00RRGGBB 写入 AXI BRAM，Sobel 在 PL 端完成），仅启动横幅不同。
+
+1) 源码级编译检查（无头自动化环境，单进程，不需要 Vitis 后端）
+----------------------------------------------------------------------
+编译器：Vitis 2023.2 自带 arm-none-eabi-gcc（实测 arm-xilinx-eabi-gcc (GCC) 12.2.0）
+命令：
+  arm-none-eabi-gcc -c -Wall -Wextra -mcpu=cortex-a9 \
+      -I tools/ps_syntax_check/include \
+      ps_uart_sobel_bram_app/src/main.c -o main.o
+结果：退出码 0，无 error、无 warning，生成 main.o（3996 字节）。
+桩头：tools/ps_syntax_check/include（最小 XUartPs / Xil_Io / xtime_l API 桩，
+      与实验 3 同源）。
+
+2) 完整 Vitis 平台 / BSP / ELF 构建（待正常 Vitis 环境）
+----------------------------------------------------------------------
+脚本：build_exp04_ps_app.tcl（在正常 Vitis 2023.2 环境运行：
+      & D:\Vivado\Vitis\2023.2\bin\xsct.bat build_exp04_ps_app.tcl）
+平台来源：run_exp04_bitstream.tcl 导出的 ps_uart_bram_hdmi.xsa。
+现状：本自动化环境下 XSCT 连接 Vitis 后端超时
+      （Timeout while establishing a connection with Vitis），
+      完整 BSP/app/ELF 构建尚未完成，待正常 Vitis 环境或现场闭环。
+
+结论：PS 源码通过 arm-none-eabi-gcc 12.2.0 源码级检查（0 error / 0 warning）；
+完整 Vitis BSP/ELF 构建待正常环境验证。不据此声称 PS 程序已在真实 Zynq 上运行。

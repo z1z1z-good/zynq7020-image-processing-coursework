@@ -1,0 +1,52 @@
+实验 4 远程构建结果（综合 / 实现 / Bitstream）
+==============================================
+
+日期：2026-06-16
+分支：exp/04-uart-sobel
+工具：Vivado 2023.2（synth/impl/bitstream 全程进程内）
+器件：xc7z020clg400-2
+脚本：run_exp04_bitstream.tcl（非项目全局综合流程）
+
+构建方法
+--------
+- 本自动化环境下 launch_runs / launch_simulation / XSCT 均派生子进程失败，故采用非项目
+  全局综合：在隔离 build 工程内重建 PS7 + SmartConnect + AXI BRAM Controller +
+  Block Memory Generator 的 Block Design（IP 版本随 2023.2 动态解析，BD 设
+  synth_checkpoint_mode None），再 synth_design / opt_design / place_design /
+  phys_opt_design / route_design / write_bitstream / write_hw_platform，未覆盖 2017.4 原始 BD/XPR。
+- PL RTL：top + hdmi_pl_top + hdmi_bram_sobel_display + rgb_to_gray + sobel_core +
+  video_clock + rgb2dvi（归档源码 + 同名包装 rgb2dvi_0.vhd，避免依赖缺失的旧 IP repository）。
+- BRAM 基地址 0x40000000，范围 64KB。
+
+结果（EXP04_BUILD=passed）
+--------------------------
+资源利用率（exp04_utilization.txt）：
+  Slice LUTs        4446 / 53200   (8.36%)
+  Slice Registers   3662 / 106400  (3.44%)
+  Block RAM Tile    18   / 140     (12.86%)   RAMB36 x18（含 PL edge_mem 与 BD BRAM）
+  DSP               0
+  MMCME2_ADV 1，BUFG 4，Bonded IOB 10
+  （相对实验 3 的 1775 LUT / 1504 FF / 16 BRAM 增加，来自新增 rgb_to_gray + sobel_core +
+   edge_mem 与扫描状态机。）
+
+时序（exp04_timing_summary.txt）：
+  Setup：WNS = +13.453 ns，TNS = 0.000 ns，0 failing endpoints
+  Hold ：WHS = +0.058 ns，THS = 0.000 ns，0 failing endpoints
+  Pulse Width：最差 +8.870 ns，0 failing endpoints
+  主时钟 clk_fpga_0 = 50 MHz；视频像素时钟由 MMCM 生成 74.25 MHz（另有 5x 串行时钟）。
+
+DRC（exp04_drc.txt）：
+  0 errors；20 个 REQP-1839（RAMB36 async control check）warning + 1 个 CHECK-3
+  （report rule limit reached，即 REQP-1839 达到 20 条报告上限的提示）。
+  说明：edge_mem 的地址/控制引脚来自 sobel_core 中异步复位（negedge rst_n）的 edge_x /
+  edge_y 寄存器；该复位仅在上电 / 视频 MMCM 未 lock 前断言，正常处理期间不复位，故对
+  功能与 bitstream 生成无影响。这是基线 sobel_core（异步复位）与 block RAM edge_mem 组合的
+  固有提示；本实验基础扩展只改 edge_pixel -> RGB 显示映射，未改 sobel_core 核心数据通路，
+  故保留为预期 warning。若要彻底消除，可把 sobel_core 改为同步复位（属核心改动，超出本
+  实验显示映射扩展范围）。
+
+生成物（不提交 Git，位于已忽略的 build/vivado_2023_2/）：
+  top.bit、ps_uart_bram_hdmi.xsa、top_routed.dcp
+
+边界：以上为远程综合 / 实现 / 时序 / DRC / bitstream 通过；真实 JTAG 下载、PS 运行、
+UART 传图与 HDMI 显示待现场验证。"协同仿真通过"与"上板通过"严格区分。
