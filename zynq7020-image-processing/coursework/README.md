@@ -44,7 +44,7 @@
 | `exp02`     | 固定图片 Sobel                    | 全链 XSim、实现和 bitstream 通过；待现场 HDMI 验证 |
 | `exp03`     | PC UART -> PS -> BRAM -> HDMI | 边框扩展、协议黄金模型自检、XSim、实现、bitstream 与 PS 源码检查通过；正式 Vitis 构建和现场上板待完成 |
 | `exp04`     | UART 图像 -> PL Sobel -> HDMI   | 未开始                         |
-| `exp05`     | PC 控制模式、阈值和叠加                 | 未开始                         |
+| `exp05`     | PC 控制模式、阈值和叠加                 | 远程协同仿真 + 综合/实现/DRC/bitstream + PS 源码检查通过；待现场上板 |
 | `extension` | 上位机缩放策略扩展                     | 未开始                         |
 
 默认综合扩展为 `stretch`、`letterbox`、`center-crop` 三种上位机缩放策略。Prewitt 仅作为基础路线全部稳定后的进阶备选。
@@ -176,3 +176,22 @@ git log --oneline --left-right main...upstream/main
 现场下载、运行、HDMI 验收和回传清单见
 [`sobel_03_uart_hdmi/README.md`](../sobel_03_uart_hdmi/README.md) 的“远程开发结果与现场上板流程”。
 在收到真实 HDMI 照片、串口日志和 Hardware Manager 记录前，实验 3 不标记为“上板通过”。
+
+## 实验 5 远程开发结果
+
+2026-06-16 在 `exp/05-pc-control` 完成远程开发阶段，PS 正式 Vitis 构建与上板仍待现场：
+
+1. 从含 AGENTS.md 的 `main`（`07a0934`，与 `origin/main` 一致）创建分支与独立工作树，未改动其他实验。
+2. 核对既有 PC / PS / PL 控制实现（控制帧 `A5 5A cmd value`、PS `wait_for_packet_start` 分发 + 控制字写入、PL 每帧读控制字 + 四模式显示 mux），未重写。
+3. 无板卡协同仿真链 `EXP05_COSIM_CHAIN=passed`：真实上位机图像打包（27943B）+ 控制帧（12B）逐字节一致；真实 `main.c` 分发产出图像区（9216 word）与 golden 一致、控制字 `0x9000/4/8` 与下发（mode=3/thr=40/overlay=1）一致；6 个错误注入码与 `main.c` 一致；`mode=0/1/2/3` + 阈值 40/80/120 + `overlay=0/1` 共 7 组全分辨率渲染逐像素一致（右下角单像素边界伪影已说明）。
+4. XSim 自检 `EXP05_SELFCHECK_TB=passed`（有效像素数 / HS/VS / sobel_done / 显示映射自洽）。
+5. 隔离 Tcl 工程重建 PS7 + AXI BRAM Block Design（全局综合，IP 版本随 2023.2 解析），未覆盖 2017.4 BD；综合、实现、bitstream 与 XSA 导出通过。
+6. WNS `0.325 ns`、TNS `0 ns`、WHS `0.043 ns`、THS `0 ns`；DRC `0` violations。
+7. 资源占用 `10795` LUT、`4113` FF、`20` BRAM、`0` DSP、`1` MMCM。
+8. PS `main.c` 用 `arm-none-eabi-gcc 12.2.0` 源码级编译 0 error、0 warning；完整 Vitis BSP/ELF 脚本为 `build_exp05_ps_app.tcl`，本环境 XSCT 连接超时，正式构建待现场。
+
+仿真、协同仿真、预期画面、资源、时序、DRC 和 PS 编译证据见
+[`evidence/06_pc_control`](evidence/06_pc_control/README.md)。
+现场下载、运行、各模式 HDMI 验收和回传清单见
+[`sobel_05_pc_control_display/README.md`](../sobel_05_pc_control_display/README.md) 的“远程开发结果与现场上板流程”。
+在收到真实 HDMI 各模式照片、串口控制回显和 Hardware Manager 记录前，实验 5 不标记为“上板通过”。

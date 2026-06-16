@@ -127,6 +127,25 @@ coursework/evidence/04_uart_hdmi/exp03_cosim.txt    结果证据
 - 分别对 `mode=0/1/2/3`（原图/灰度/边缘/叠加）、阈值与 `overlay` 渲染并比对；
   控制字地址不得与 framebuffer 冲突。
 
+实验 5 参考实现（worked example）：
+
+```text
+sobel_05_pc_control_display/tools/cosim/ps_protocol_model.c   纳入真实 main.c，驱动 wait_for_packet_start 分发循环（非 receive_frame），g_fb 覆盖控制字 0x9000/4/8（≥9219 word）
+sobel_05_pc_control_display/tools/cosim/exp05_cosim.py        gen（真实图像打包 + 真实 send_requested_controls 控制字节核对）/ check-fb（图像区+控制字）/ render-compare（逐配置）
+sobel_05_pc_control_display/tools/generate_exp05_expected.py  四模式显示 mux + gray/Sobel + 红边叠加软件 golden、预期 PNG、阈值统计
+sobel_05_pc_control_display/sim/hdmi_bram_sobel_display_tb.v        缩小时序自检（时序 / sobel_done / 显示映射自洽）
+sobel_05_pc_control_display/sim/hdmi_bram_sobel_display_cosim_tb.v  全分辨率渲染捕获（行为 BRAM 载图像区 + 控制字）
+sobel_05_pc_control_display/tools/cosim/run_exp05_cosim.sh    一键编排
+coursework/evidence/06_pc_control/exp05_cosim.txt            结果证据
+```
+
+运行（Git-Bash）：`bash sobel_05_pc_control_display/tools/cosim/run_exp05_cosim.sh`，
+通过标志为 `EXP05_COSIM_CHAIN=passed`（仅逻辑层：`EXP05_COSIM_QUICK=1 bash ...`）。
+与实验 3/4 的关键差异：图像帧与控制帧经**同一字节流**由 `wait_for_packet_start` 分发（实验 5
+没有 `receive_frame`），行为 BRAM 与 host 模型的 framebuffer 都要覆盖到控制字 `0x9008`（字索引
+9218）；软件 golden 复现四模式显示 mux + 阈值 + 红边叠加，对 `mode=0/1/2/3`、阈值 40/80/120、
+`overlay=0/1` 逐像素比对。
+
 ## 7. 验收与汇报口径
 
 - 通过仅指「协同仿真链通过」：打包/解析/格式/显示/算法层一致。

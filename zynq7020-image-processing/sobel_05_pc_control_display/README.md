@@ -347,3 +347,79 @@ bitstream 是否重新生成并下载
 
 检查 Sobel 输出是否经过阈值判断。如果只是把 `edge_data` 直接复制到 RGB，阈值控制不会改变显示结果。
 
+## 12. 远程开发结果与现场上板流程
+
+> 本节由无板卡远程开发阶段补充，记录已在远程通过的检查与待现场完成的验证。
+> 严格区分“协同仿真 / 构建通过”与“上板通过”。
+
+### 12.1 远程开发结果（`exp/05-pc-control` 分支）
+
+- 工具：Vivado/XSim 2023.2、Vitis 2023.2、arm-none-eabi-gcc 12.2.0、host gcc、Python 3.11；器件 `xc7z020clg400-2`。
+- 既有实现核对（未重写）：PC（`camera_uart_sender.send_control_command` / `send_requested_controls` 发 `A5 5A cmd value`）、PS（`main.c` 用 `wait_for_packet_start` 分发图像帧/控制帧、`handle_control_packet` 写控制字）、PL（`hdmi_bram_sobel_display.v` 每帧先读 3 个控制字再扫描、四模式显示 mux）均完整正确。
+- 无板卡协同仿真链 `EXP05_COSIM_CHAIN=passed`：真实上位机图像打包(27943B)+控制帧(12B)与本地编码器逐字节一致；真实 `main.c` 分发产出图像区(9216 word)与 golden 一致、控制字 `0x9000/4/8` 与下发(mode=3/thr=40/overlay=1)一致；6 个错误注入返回码与 `main.c` 一致；XSim 自检 `EXP05_SELFCHECK_TB=passed`；全分辨率渲染对 mode=0/1/2/3、阈值 40/80/120、overlay=0/1 共 7 组逐像素比对一致（右下角单像素边界伪影已说明）。
+- 全局构建 `EXP05_BUILD=passed`：综合/实现/bitstream 通过；WNS=0.325 ns、TNS=0、WHS=0.043 ns、THS=0；DRC 0 violations；10795 LUT / 4113 FF / 20 BRAM / 0 DSP / 1 MMCM；导出 `ps_uart_bram_hdmi.xsa`。
+- PS 源码检查：`arm-none-eabi-gcc -c -Wall -Wextra` 0 error / 0 warning。
+- 证据目录：`coursework/evidence/06_pc_control/`。复现命令见 12.4。
+
+### 12.2 控制字地图（数据流契约，勿改语义）
+
+```text
+PC 图像/控制 --UART--> PS(main.c) --AXI--> BRAM --PortB--> PL(hdmi_bram_sobel_display) --> HDMI
+  图像帧 55 AA w_l w_h h_l h_h 18 + 每行(33 CC row_l row_h + 128x RGB)  -> 图像区
+  控制帧 A5 5A cmd value (cmd=1 mode / 2 threshold / 3 overlay)         -> 控制字
+```
+
+| BRAM 字节地址 | 字索引 | 名称 | 含义 | 位宽 |
+| --- | --- | --- | --- | --- |
+| `0x0000`..`0x8FFC` | 0..9215 | 图像区 framebuffer | 128x72，每像素 `0x00RRGGBB` | 24 (存于 32) |
+| `0x9000` | 9216 | `display_mode` | 0 原图 / 1 灰度 / 2 边缘 / 3 叠加 | 2 bit |
+| `0x9004` | 9217 | `threshold` | Sobel 二值化阈值 0..255 | 8 bit |
+| `0x9008` | 9218 | `overlay_enable` | 0 关 / 1 开 彩色边缘叠加 | 1 bit |
+
+图像区最后一像素地址 `0x8FFC`，与控制区不重叠，均在 64KB BRAM 内。复位 / 上电默认 mode=2(边缘) / thr=80 / overlay=0。彩色叠加固定红色 `0xff2020`：非边缘模式下 `overlay_enable=1` 或 `mode=3` 时，`edge_pixel>=threshold` 处涂红。
+
+### 12.3 现场上板流程
+
+硬件：黑金 ZYNQ7020 开发板、HDMI 显示器、USB 串口线、JTAG。
+
+1. 分支与提交号：`exp/05-pc-control`；提交号以现场 `git log -1` 为准。
+2. 接线：JTAG-USB、HDMI 接显示器、USB 串口（PS UART1，MIO48/49，115200 8N1）。
+3. 用户侧构建（正常 Vivado/Vitis 2023.2 环境）：
+   - bitstream：`vivado -mode batch -source run_exp05_bitstream.tcl`（路径过深时设 `EXP05_BUILD_DIR` 为短路径）。
+   - PS ELF：`xsct build_exp05_ps_app.tcl`（依赖上一步导出的 XSA）；或用现有 `.sdk` 工作区（见 §6）。
+4. 下载 bitstream：Hardware Manager → Open Target → Program Device（`top.bit`）。
+5. 运行 PS：下载并运行 `ps_uart_control_bram_app.elf`；串口应打印横幅 `PS UART PL Control HDMI display` 与初始 `control: mode=2 threshold=80 overlay=0`。
+6. 上位机发图：`python camera_uart_sender.py --port COMx --baud 115200 --image <图片> --once`。
+7. 上位机控制（CLI 任选，或 GUI 的 `Display control for sobel_05`）：
+   - `... --control-only --mode gray` / `--mode edge --threshold 80`（可换 40/120）/ `--mode overlay`
+   - `... --control-only --overlay on`（在当前模式叠加红边）/ `--overlay off`
+8. 预期现象：
+   - 串口：每条控制命令回显 `control: mode=.. threshold=.. overlay=..`；收图回显 `received frame N`。
+   - HDMI：mode=0 原图；mode=1 灰度；mode=2 黑白边缘（阈值越大白边越少）；mode=3 或 overlay 开 在原图上叠加红色边缘。
+9. 通过标准：四模式切换正确、阈值改变边缘数量、红边叠加可开关、串口回显与设置一致、图像与控制命令不冲突。
+10. 失败时保存：完整串口文本、各模式 HDMI 照片、Vivado 资源/时序/DRC、上位机日志、最后一个正常现象。
+11. 回传清单：见 `coursework/evidence/06_pc_control/README.md` 的“待现场回传”。
+
+### 12.4 远程复现命令
+
+```bash
+# 协同仿真链（含全分辨率逐配置渲染比对）
+bash tools/cosim/run_exp05_cosim.sh
+# 仅逻辑层（跳过较慢的全分辨率渲染）
+EXP05_COSIM_QUICK=1 bash tools/cosim/run_exp05_cosim.sh
+# 预期画面与协议自检
+python tools/generate_exp05_expected.py --evidence-dir <evid_dir> --hex-output <hex>
+# 全局综合/实现/bitstream（路径过深时设短 build dir）
+EXP05_BUILD_DIR=D:/codex_prj/x5b vivado -mode batch -source run_exp05_bitstream.tcl
+# PS 源码检查
+arm-none-eabi-gcc -c -Wall -Wextra -mcpu=cortex-a9 -I tools/ps_syntax_check/include \
+    ps_uart_control_bram_app/src/main.c -o main.o
+```
+
+### 12.5 第二周综合大拓展扩展点（当前不开工，待方向确认）
+
+本工程是第二周综合大拓展的基础平台，已留干净扩展点；扩展时保持 12.2 的图像区 / 控制字地址语义不变：
+
+- **选项 1（推荐主线）上位机输入与缩放策略**：仅改 `host_camera_uart`（把 `cv2.resize` 抽成可复用 `prepare_frame()`，加 `--fit-mode` stretch/letterbox/center-crop），FPGA 端 128x72 链路完全不动。
+- **选项 2 网络传输（lwIP）**：在 PS 侧新增网络接收并写同一 BRAM 图像区，PL / HDMI / 控制字链路保持不变。
+- **选项 3 新增 PL 算法（Prewitt/Laplacian/滤波）**：`display_mode` 现为 2 bit（4 模式已满）、`cmd=1` 的 `value&0x03` 也限 2 bit。新增算法/模式需在两处扩展：(a) `hdmi_bram_sobel_display.v` 显示 mux 组合块（`case (display_mode)` 处新增分支并并联新算法核），(b) 控制协议（把 `display_mode` 扩宽到 3 bit，或新增 `cmd=4` 选择算法）。
