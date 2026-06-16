@@ -1,0 +1,9 @@
+实验 2 固定图片 Sobel 阈值统计
+图像尺寸：128 x 72（9216 个源像素）
+比较规则：edge_pixel >= threshold
+
+threshold= 40 white_pixels=1307
+threshold= 80 white_pixels=1274
+threshold=120 white_pixels=1234
+
+白色像素数单调不增加检查：通过

@@ -1,7 +1,13 @@
 set project_dir [file dirname [file normalize [info script]]]
 set src_dir [file join $project_dir "sobel_02_hdmi_sobel.srcs" "sources_1" "new"]
 
-set files [list [file join $src_dir "top.v"]]
+set files [list \
+    [file join $src_dir "image_rom_128x72.v"] \
+    [file join $src_dir "rgb_to_gray.v"] \
+    [file join $src_dir "sobel_core.v"] \
+    [file join $src_dir "hdmi_sobel_display.v"] \
+    [file join $src_dir "top.v"] \
+]
 
 foreach file_path $files {
     if {[llength [get_files -quiet $file_path]] == 0} {

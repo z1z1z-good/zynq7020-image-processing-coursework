@@ -1,0 +1,17 @@
+实验 2 XSim 结果摘要
+日期：2026-06-15
+工具：Vivado/XSim 2023.2
+器件：xc7z020clg400-2
+
+执行命令：
+vivado.bat -mode batch -nojournal -nolog -source run_exp02_sim.tcl
+
+运行结果：
+HDMI Sobel full-chain simulation passed
+gray_samples=9216
+edge_writes=9216
+white_hdmi_pixels=5096
+EXP02_SIM=passed
+
+仿真使用 2 x 2 缩放，因此 5096 个 HDMI 白色像素对应阈值 80 下的
+1274 个白色源像素。
