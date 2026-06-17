@@ -1,0 +1,33 @@
+exp5 scaling extension - offline test log
+date: 2026-06-17   branch: exp/05-ext-scaling   tests commit: e28346c
+interpreter: D:/Miniconda3/python.exe  (Python 3.11.15, numpy 2.4.6, cv2 4.13.0, pyserial 3.5)
+run: set PYTHONUTF8=1 && python tests/test_prepare_frame.py
+     set PYTHONUTF8=1 && python tests/test_protocol_invariants.py
+board / serial / camera: NOT used -- offline verification only
+
+########## tests/test_prepare_frame.py  (real cv2 + numpy) ##########
+PASS test_center_crop_is_centered
+PASS test_center_crop_no_black_border
+PASS test_content_size_is_coarser_and_valid
+PASS test_letterbox_aspect_and_fill
+PASS test_packet_invariants_all_modes_sizes
+PASS test_shapes_all_modes_all_sizes
+PASS test_stretch_matches_legacy_resize
+
+7/7 passed
+
+########## tests/test_protocol_invariants.py  (methodology s3.1 cv2/serial stub) ##########
+PASS test_build_frame_packet_len_and_header
+PASS test_packing_runs_without_real_opencv
+PASS test_send_control_command_bytes
+PASS test_send_requested_controls_sequence
+
+4/4 passed
+
+summary: 11/11 offline assertions passed.
+invariants held for every fit mode x original size x proc size (see ext_scaling_matrix.txt):
+  - prepare_frame output shape (72, 128, 3), dtype uint8
+  - build_frame_packet length 27943 bytes
+  - frame header 55 aa 80 00 48 00 18
+  - send_control_command -> A5 5A cmd value (e.g. A5 5A 01 03)
+status: host offline verification passed; on-site board demo still pending.
