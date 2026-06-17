@@ -4,6 +4,15 @@
 
 各实验的详细操作步骤、验收现象、常见问题和可选扩展，写在对应实验目录的 README 中。阅读时先看本文件了解整体安排，再进入具体实验目录完成操作。
 
+## 阅读入口
+
+| 入口 | 说明 |
+| --- | --- |
+| [`coursework/README.md`](coursework/README.md) | 个人主线状态、现场待办和分支边界 |
+| [`coursework/docs/README.md`](coursework/docs/README.md) | 无板开发计划、协同仿真方法、历史进度日志和报告材料 |
+| [`coursework/evidence/README.md`](coursework/evidence/README.md) | 仿真、构建、上板和最终演示证据 |
+| [`host_camera_uart/README.md`](host_camera_uart/README.md) | PC 端图像发送和实验 5 控制工具 |
+
 ## 1. 课程设计目标
 
 本课程设计以黑金 ZYNQ7020 开发板为平台，完成一个由浅入深的图像处理系统：
