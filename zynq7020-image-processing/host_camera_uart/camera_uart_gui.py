@@ -13,7 +13,16 @@ try:
     import serial
     from serial.tools import list_ports
 
-    from camera_uart_sender import FrameSource, send_frame_by_line, send_requested_controls
+    from camera_uart_sender import (
+        FIT_MODES,
+        PROC_SIZES,
+        FrameSource,
+        collect_image_paths,
+        parse_proc_size,
+        prepare_frame,
+        send_frame_by_line,
+        send_requested_controls,
+    )
 except ImportError as exc:
     DEPENDENCY_ERROR = exc
 
@@ -50,6 +59,8 @@ class CameraUartGui(tk.Tk):
         self.line_delay_var = tk.StringVar(value="0.0")
         self.width_var = tk.StringVar(value=str(DEFAULT_WIDTH))
         self.height_var = tk.StringVar(value=str(DEFAULT_HEIGHT))
+        self.fit_mode_var = tk.StringVar(value="stretch")
+        self.proc_size_var = tk.StringVar(value="128x72")
         self.flip_var = tk.BooleanVar(value=False)
         self.preview_var = tk.BooleanVar(value=True)
         self.once_var = tk.BooleanVar(value=False)
@@ -126,7 +137,9 @@ class CameraUartGui(tk.Tk):
             command=self._sync_source_state,
         ).grid(row=2, column=0, sticky="w", pady=(8, 0))
         self.images_entry = ttk.Entry(source_frame, textvariable=self.images_summary_var)
-        self.images_entry.grid(row=2, column=1, columnspan=3, sticky="ew", padx=(16, 8), pady=(8, 0))
+        self.images_entry.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(16, 8), pady=(8, 0))
+        self.browse_image_dir_button = ttk.Button(source_frame, text="Folder", command=self.browse_image_dir)
+        self.browse_image_dir_button.grid(row=2, column=3, sticky="e", pady=(8, 0))
         self.browse_images_button = ttk.Button(source_frame, text="Browse", command=self.browse_images)
         self.browse_images_button.grid(row=2, column=4, sticky="e", pady=(8, 0))
 
@@ -166,6 +179,25 @@ class CameraUartGui(tk.Tk):
         ttk.Checkbutton(settings, text="Loop file input", variable=self.loop_var).grid(
             row=1, column=6, columnspan=2, sticky="w", pady=(8, 0)
         )
+
+        ttk.Label(settings, text="Fit mode").grid(row=2, column=0, sticky="w", padx=(0, 6), pady=(8, 0))
+        self.fit_mode_combo = ttk.Combobox(
+            settings,
+            textvariable=self.fit_mode_var,
+            width=12,
+            values=FIT_MODES,
+            state="readonly",
+        )
+        self.fit_mode_combo.grid(row=2, column=1, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Label(settings, text="Proc size").grid(row=2, column=3, sticky="w", padx=(16, 6), pady=(8, 0))
+        self.proc_size_combo = ttk.Combobox(
+            settings,
+            textvariable=self.proc_size_var,
+            width=10,
+            values=PROC_SIZES,
+            state="readonly",
+        )
+        self.proc_size_combo.grid(row=2, column=4, columnspan=2, sticky="w", pady=(8, 0))
 
         control_frame = ttk.LabelFrame(root, text="Display control for sobel_05", padding=10)
         control_frame.pack(fill=tk.X, pady=(12, 0))
@@ -258,6 +290,21 @@ class CameraUartGui(tk.Tk):
         if paths:
             self.image_paths = list(paths)
             self.images_summary_var.set(f"{len(self.image_paths)} image files selected")
+
+    def browse_image_dir(self) -> None:
+        directory = filedialog.askdirectory(title="Select image folder")
+        if not directory:
+            return
+        try:
+            paths = collect_image_paths(image_dir=directory)
+        except RuntimeError as exc:
+            messagebox.showerror("Invalid folder", str(exc))
+            return
+        if not paths:
+            messagebox.showerror("Empty folder", f"No supported images found in {directory}")
+            return
+        self.image_paths = [str(path) for path in paths]
+        self.images_summary_var.set(f"{len(self.image_paths)} images from {directory}")
 
     def browse_video(self) -> None:
         path = filedialog.askopenfilename(
@@ -395,6 +442,8 @@ class CameraUartGui(tk.Tk):
             "fps": fps,
             "width": width,
             "height": height,
+            "fit_mode": self.fit_mode_var.get(),
+            "proc_size": self.proc_size_var.get(),
             "line_delay": line_delay,
             "flip": self.flip_var.get(),
             "preview": self.preview_var.get(),
@@ -418,6 +467,8 @@ class CameraUartGui(tk.Tk):
             )
             source.open()
 
+            content_size = parse_proc_size(config["proc_size"], config["width"], config["height"])
+            fill = (0, 0, 0)
             frame_interval = 1.0 / config["fps"]
             with serial.Serial(config["port"], config["baud"], timeout=0, write_timeout=2) as ser:
                 time.sleep(0.2)
@@ -428,10 +479,12 @@ class CameraUartGui(tk.Tk):
                     config["control_overlay"],
                 )
                 self._log(
-                    f"sending {config['width']}x{config['height']} RGB888 from {source.describe()} to "
+                    f"sending {config['width']}x{config['height']} RGB888 "
+                    f"({config['fit_mode']}, proc {config['proc_size']}) from {source.describe()} to "
                     f"{config['port']} at {config['baud']} baud"
                 )
 
+                last_src_size: tuple[int, int] | None = None
                 while not self.stop_event.is_set():
                     self._send_queued_controls(ser)
                     start = time.monotonic()
@@ -442,12 +495,26 @@ class CameraUartGui(tk.Tk):
                     if config["flip"]:
                         frame_bgr = cv2.flip(frame_bgr, 1)
 
-                    resized_bgr = cv2.resize(
+                    src_h, src_w = frame_bgr.shape[:2]
+                    if (src_w, src_h) != last_src_size:
+                        if content_size is None:
+                            proc_desc = f"{config['width']}x{config['height']}"
+                        else:
+                            proc_desc = (
+                                f"{content_size[0]}x{content_size[1]} content -> "
+                                f"{config['width']}x{config['height']}"
+                            )
+                        self._log(f"input {src_w}x{src_h} -> {proc_desc} ({config['fit_mode']})")
+                        last_src_size = (src_w, src_h)
+
+                    frame_rgb = prepare_frame(
                         frame_bgr,
-                        (config["width"], config["height"]),
-                        interpolation=cv2.INTER_AREA,
+                        config["width"],
+                        config["height"],
+                        config["fit_mode"],
+                        content_size,
+                        fill,
                     )
-                    frame_rgb = cv2.cvtColor(resized_bgr, cv2.COLOR_BGR2RGB)
                     send_frame_by_line(ser, frame_rgb, config["line_delay"])
 
                     self.frame_count += 1
@@ -456,8 +523,7 @@ class CameraUartGui(tk.Tk):
                         self._log(f"sent {self.frame_count} frames")
 
                     if config["preview"]:
-                        preview_rgb = cv2.cvtColor(resized_bgr, cv2.COLOR_BGR2RGB)
-                        self._offer_preview_frame(preview_rgb)
+                        self._offer_preview_frame(frame_rgb)
 
                     if config["once"]:
                         break
@@ -521,6 +587,7 @@ class CameraUartGui(tk.Tk):
         self.browse_button.configure(state=tk.NORMAL if image_mode else tk.DISABLED)
         self.images_entry.configure(state=tk.NORMAL if images_mode else tk.DISABLED)
         self.browse_images_button.configure(state=tk.NORMAL if images_mode else tk.DISABLED)
+        self.browse_image_dir_button.configure(state=tk.NORMAL if images_mode else tk.DISABLED)
         self.video_entry.configure(state=tk.NORMAL if video_mode else tk.DISABLED)
         self.browse_video_button.configure(state=tk.NORMAL if video_mode else tk.DISABLED)
 

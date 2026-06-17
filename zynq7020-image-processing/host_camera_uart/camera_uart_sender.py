@@ -20,6 +20,9 @@ CONTROL_OVERLAY = 0x03
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv"}
 
+FIT_MODES = ("stretch", "letterbox", "center-crop")
+PROC_SIZES = ("128x72", "64x36")
+
 
 class FrameSource:
     def __init__(
@@ -170,6 +173,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=float, default=0.2, help="Send frame rate")
     parser.add_argument("--width", type=int, default=128, help="Output image width")
     parser.add_argument("--height", type=int, default=72, help="Output image height")
+    parser.add_argument(
+        "--fit-mode",
+        choices=FIT_MODES,
+        default="stretch",
+        help="How any-size input is fitted into the fixed output frame "
+        "(stretch=resize, letterbox=pad, center-crop=crop)",
+    )
+    parser.add_argument(
+        "--proc-size",
+        choices=PROC_SIZES,
+        default="128x72",
+        help="Host processing resolution; 64x36 renders a coarser image but still "
+        "transmits the fixed output size",
+    )
+    parser.add_argument(
+        "--fill-color",
+        help="Letterbox padding colour as 'R,G,B' (0..255 each); default black",
+    )
     parser.add_argument("--image", help="Send one image file instead of reading the camera")
     parser.add_argument("--images", nargs="+", help="Send several image files in the given order")
     parser.add_argument("--image-dir", help="Send all supported images in one directory, sorted by file name")
@@ -192,6 +213,129 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--control-only", action="store_true", help="Send only sobel_05 control commands and exit")
     return parser.parse_args()
+
+
+def _interpolation(dst_w: int, dst_h: int, src_w: int, src_h: int) -> int:
+    # Shrinking favours INTER_AREA, enlarging favours INTER_LINEAR.
+    if dst_w * dst_h <= src_w * src_h:
+        return cv2.INTER_AREA
+    return cv2.INTER_LINEAR
+
+
+def _fit_bgr(
+    frame_bgr: np.ndarray,
+    width: int,
+    height: int,
+    fit_mode: str,
+    fill: tuple[int, int, int],
+) -> np.ndarray:
+    src_h, src_w = frame_bgr.shape[:2]
+
+    if fit_mode == "stretch":
+        interp = _interpolation(width, height, src_w, src_h)
+        return cv2.resize(frame_bgr, (width, height), interpolation=interp)
+
+    if fit_mode == "letterbox":
+        scale = min(width / src_w, height / src_h)
+        new_w = max(1, min(width, round(src_w * scale)))
+        new_h = max(1, min(height, round(src_h * scale)))
+        resized = cv2.resize(
+            frame_bgr, (new_w, new_h), interpolation=_interpolation(new_w, new_h, src_w, src_h)
+        )
+        canvas = np.empty((height, width, 3), dtype=np.uint8)
+        canvas[:, :] = fill
+        x0 = (width - new_w) // 2
+        y0 = (height - new_h) // 2
+        canvas[y0:y0 + new_h, x0:x0 + new_w] = resized
+        return canvas
+
+    if fit_mode == "center-crop":
+        scale = max(width / src_w, height / src_h)
+        new_w = max(width, round(src_w * scale))
+        new_h = max(height, round(src_h * scale))
+        resized = cv2.resize(
+            frame_bgr, (new_w, new_h), interpolation=_interpolation(new_w, new_h, src_w, src_h)
+        )
+        x0 = (new_w - width) // 2
+        y0 = (new_h - height) // 2
+        return resized[y0:y0 + height, x0:x0 + width]
+
+    raise ValueError(f"unsupported fit_mode: {fit_mode!r}")
+
+
+def prepare_frame(
+    frame_bgr: np.ndarray,
+    width: int = 128,
+    height: int = 72,
+    fit_mode: str = "stretch",
+    content_size: tuple[int, int] | None = None,
+    fill: tuple[int, int, int] = (0, 0, 0),
+) -> np.ndarray:
+    """Map a BGR frame of any size onto a fixed width x height RGB888 array.
+
+    fit_mode controls how the source aspect ratio is reconciled with the fixed
+    output frame (Plan A: all scaling happens on the host, the FPGA always
+    receives width x height):
+
+        stretch     resize straight to width x height; aspect may change
+                    (default; byte-for-byte identical to the previous tool when
+                    downscaling, which is the normal 128x72 case)
+        letterbox   uniform scale by min(W/w, H/h), centre, pad the margin with
+                    fill; the subject keeps its aspect ratio
+        center-crop uniform scale by max(W/w, H/h), centre-crop to width x height;
+                    fills the frame with no padding bars
+
+    Downscaling uses INTER_AREA, upscaling uses INTER_LINEAR.
+
+    content_size optionally renders the picture at a coarser processing size
+    (e.g. (64, 36)) first and then nearest-neighbour upsamples it back into the
+    fixed width x height transmit frame. The HDMI image then looks coarser while
+    the wire format stays width x height. None keeps the full output resolution.
+
+    fill is a BGR triple (matching the BGR input convention) used for letterbox
+    padding; after BGR->RGB the padded margin reads back as fill reversed.
+
+    Returns an (height, width, 3) uint8 RGB array ready for build_frame_packet
+    and send_frame_by_line.
+    """
+    if content_size is not None and tuple(content_size) != (width, height):
+        proc_w, proc_h = content_size
+        if proc_w <= 0 or proc_h <= 0:
+            raise ValueError("content_size dimensions must be positive")
+        content_bgr = _fit_bgr(frame_bgr, proc_w, proc_h, fit_mode, fill)
+        # Upsample the coarse content back to the fixed transmit frame; nearest
+        # neighbour keeps the enlarged pixels crisp so the lower processing
+        # resolution stays visible on HDMI.
+        fitted_bgr = cv2.resize(content_bgr, (width, height), interpolation=cv2.INTER_NEAREST)
+    else:
+        fitted_bgr = _fit_bgr(frame_bgr, width, height, fit_mode, fill)
+
+    return cv2.cvtColor(fitted_bgr, cv2.COLOR_BGR2RGB)
+
+
+def parse_proc_size(value: str, width: int, height: int) -> tuple[int, int] | None:
+    """Map a --proc-size choice such as '64x36' to a content_size for
+    prepare_frame. The transmit size (width x height) means full resolution and
+    returns None."""
+    proc_w, proc_h = (int(part) for part in value.lower().split("x"))
+    if proc_w <= 0 or proc_h <= 0:
+        raise ValueError("--proc-size dimensions must be positive")
+    if (proc_w, proc_h) == (width, height):
+        return None
+    return (proc_w, proc_h)
+
+
+def parse_fill_color(value: str) -> tuple[int, int, int]:
+    """Parse a 'R,G,B' string (0..255 each) into a BGR fill tuple for
+    prepare_frame's letterbox padding."""
+    parts = value.split(",")
+    if len(parts) != 3:
+        raise ValueError("--fill-color must be 'R,G,B', for example '0,0,0'")
+    r, g, b = (int(part) for part in parts)
+    for channel in (r, g, b):
+        if not 0 <= channel <= 255:
+            raise ValueError("--fill-color channels must be in range 0..255")
+    return (b, g, r)
 
 
 def build_frame_packet(rgb_image: np.ndarray) -> bytes:
@@ -276,6 +420,9 @@ def main() -> int:
     ):
         raise ValueError("--control-only needs at least one of --mode, --threshold, or --overlay")
 
+    content_size = parse_proc_size(args.proc_size, args.width, args.height)
+    fill = parse_fill_color(args.fill_color) if args.fill_color else (0, 0, 0)
+
     source = FrameSource(
         source=source_name,
         camera=args.camera,
@@ -302,10 +449,12 @@ def main() -> int:
                 return 0
 
             print(
-                f"sending {args.width}x{args.height} RGB888 from {source.describe()} "
+                f"sending {args.width}x{args.height} RGB888 ({args.fit_mode}, "
+                f"proc {args.proc_size}) from {source.describe()} "
                 f"to {args.port} at {args.baud} baud"
             )
 
+            last_src_size: tuple[int, int] | None = None
             while True:
                 start = time.monotonic()
                 ok, frame_bgr = source.read()
@@ -315,15 +464,31 @@ def main() -> int:
                 if args.flip:
                     frame_bgr = cv2.flip(frame_bgr, 1)
 
-                resized_bgr = cv2.resize(
-                    frame_bgr, (args.width, args.height), interpolation=cv2.INTER_AREA
+                src_h, src_w = frame_bgr.shape[:2]
+                if (src_w, src_h) != last_src_size:
+                    if content_size is None:
+                        proc_desc = f"{args.width}x{args.height}"
+                    else:
+                        proc_desc = (
+                            f"{content_size[0]}x{content_size[1]} content -> "
+                            f"{args.width}x{args.height}"
+                        )
+                    print(f"input {src_w}x{src_h} -> {proc_desc} ({args.fit_mode})")
+                    last_src_size = (src_w, src_h)
+
+                frame_rgb = prepare_frame(
+                    frame_bgr, args.width, args.height, args.fit_mode, content_size, fill
                 )
-                frame_rgb = cv2.cvtColor(resized_bgr, cv2.COLOR_BGR2RGB)
                 send_frame_by_line(ser, frame_rgb, args.line_delay)
                 frame_count += 1
 
                 if args.preview:
-                    preview = cv2.resize(resized_bgr, (args.width * 5, args.height * 5))
+                    preview_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+                    preview = cv2.resize(
+                        preview_bgr,
+                        (args.width * 5, args.height * 5),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
                     cv2.imshow("camera uart sender", preview)
                     if cv2.waitKey(1) & 0xFF == 27:
                         break
