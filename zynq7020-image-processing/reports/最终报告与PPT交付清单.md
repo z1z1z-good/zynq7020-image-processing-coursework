@@ -85,10 +85,10 @@
 
 | 成员 | 分工 | 可写贡献点 |
 | --- | --- | --- |
-| 成员 A | PL/HDMI/Sobel | 负责实验 1/2/4/5 的 HDMI 显示、Sobel 链路、资源时序整理 |
-| 成员 B | PS/UART/BRAM | 负责实验 3/4/5 的 PS 串口接收、BRAM 写入、控制字协议 |
-| 成员 C | PC 上位机与综合扩展 | 负责 `host_camera_uart` 输入规格扩展、fit 策略、GUI/CLI、离线测试 |
-| 成员 D | 资料与展示 | 负责照片证据、报告、PPT、最终演示材料整理 |
+| skf | PL/HDMI/Sobel | 负责提供肖像， HDMI 显示、Sobel 链路、资源时序整理 |
+| cwh | PS/UART/BRAM | 负责实验 3/4/5 的 PS 串口接收、BRAM 写入、控制字协议 |
+| lzj | PC 上位机与综合扩展 | 负责 `host_camera_uart` 输入规格扩展、fit 策略、GUI/CLI、离线测试 |
+| lcy | 资料与展示 | 负责照片证据、报告、PPT、最终演示材料整理 |
 
 ## 5. PPT 推荐图片清单
 
