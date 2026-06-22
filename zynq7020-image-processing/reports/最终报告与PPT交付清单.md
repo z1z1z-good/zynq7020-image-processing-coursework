@@ -85,10 +85,10 @@
 
 | 成员 | 分工 | 可写贡献点 |
 | --- | --- | --- |
-| skf | PL/HDMI/Sobel | 负责提供肖像， HDMI 显示、Sobel 链路、资源时序整理 |
+| skf | PL/HDMI/Sobel | 负责提供肖像， HDMI 显示、Sobel 链路 |
 | cwh | PS/UART/BRAM | 负责实验 3/4/5 的 PS 串口接收、BRAM 写入、控制字协议 |
 | lzj | PC 上位机与综合扩展 | 负责 `host_camera_uart` 输入规格扩展、fit 策略、GUI/CLI、离线测试 |
-| lcy | 资料与展示 | 负责照片证据、报告、PPT、最终演示材料整理 |
+| lcy | 资料与展示 | 负责照片证据、、资源时序整理、报告、PPT、最终演示材料整理 |
 
 ## 5. PPT 推荐图片清单
 
@@ -622,10 +622,10 @@ UART 8N1 115200 baud 理论传输时间 = 27943*10/115200 ≈ 2.43s/frame
 
 | 成员 | 主要分工 | 贡献说明 |
 | --- | --- | --- |
-| skf | PL/HDMI/Sobel/图片 | 负责提供肖像，HDMI 显示、Sobel 链路、资源时序整理 |
+| skf | PL/HDMI/Sobel/图片 | 负责提供肖像，HDMI 显示、Sobel 链路 |
 | cwh | PS/UART/BRAM | 负责串口接收、BRAM 写入、控制字协议 |
 | lzj | PC 上位机与大拓展 | 负责输入规格扩展、fit 策略、GUI/CLI、离线测试 |
-| lcy | 文档与展示 | 负责照片证据、报告整理、PPT 制作和答辩材料 |
+| lcy | 文档与展示 | 负责照片证据、报告整理、资源时序整理、PPT 制作和答辩材料 |
 
 **推荐图片**
 
