@@ -1,0 +1,19 @@
+EXP05_COSIM_HOST_PACK=match bytes=27943
+EXP05_COSIM_HOST_CONTROL=match bytes=12
+EXP05_COSIM_RENDER_CASES=11
+PS_MODEL_CTRL mode=3 threshold=40 overlay=1 sharpen=96
+EXP05_COSIM_FB=match image_words=9216 ctrl=mode=3,thr=40,ovl=1,sharpen=96
+EXP05_COSIM_ERRORS=match
+EXP05_SELFCHECK_TB=passed active=36864 red=3844
+EXP05_COSIM_PNG_orig=match pixels=921600 corner_artifact=1 mode=0 thr=80 ovl=0 sharpen=0
+EXP05_COSIM_PNG_gray=match pixels=921600 corner_artifact=1 mode=1 thr=80 ovl=0 sharpen=0
+EXP05_COSIM_PNG_edge40=match pixels=921600 corner_artifact=0 mode=2 thr=40 ovl=0 sharpen=0
+EXP05_COSIM_PNG_edge80=match pixels=921600 corner_artifact=0 mode=2 thr=80 ovl=0 sharpen=0
+EXP05_COSIM_PNG_edge120=match pixels=921600 corner_artifact=0 mode=2 thr=120 ovl=0 sharpen=0
+EXP05_COSIM_PNG_overlay=match pixels=921600 corner_artifact=1 mode=3 thr=80 ovl=0 sharpen=0
+EXP05_COSIM_PNG_ovlon=match pixels=921600 corner_artifact=1 mode=0 thr=80 ovl=1 sharpen=0
+EXP05_COSIM_PNG_sharp0=match pixels=921600 corner_artifact=1 mode=4 thr=80 ovl=0 sharpen=0
+EXP05_COSIM_PNG_sharp64=match pixels=921600 corner_artifact=1 mode=4 thr=80 ovl=0 sharpen=64
+EXP05_COSIM_PNG_sharp128=match pixels=921600 corner_artifact=1 mode=4 thr=80 ovl=0 sharpen=128
+EXP05_COSIM_PNG_sharp255=match pixels=921600 corner_artifact=1 mode=4 thr=80 ovl=0 sharpen=255
+EXP05_COSIM_CHAIN=passed

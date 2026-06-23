@@ -1,0 +1,12 @@
+大拓展03 锐化 软件预览/golden/RTL 三者逐位一致 交叉验证
+（numpy sharpen_algo  vs  stdlib golden display_mux(MODE_SHARPEN)  vs  RTL[经协同仿真]）
+
+  k=  0: numpy == stdlib golden  (changed vs original: 0 px)
+  k=  1: numpy == stdlib golden  (changed vs original: 3174 px)
+  k= 17: numpy == stdlib golden  (changed vs original: 3556 px)
+  k= 64: numpy == stdlib golden  (changed vs original: 3579 px)
+  k=128: numpy == stdlib golden  (changed vs original: 4501 px)
+  k=200: numpy == stdlib golden  (changed vs original: 4501 px)
+  k=255: numpy == stdlib golden  (changed vs original: 4501 px)
+laplacian match: True
+RESULT: PASS - GUI preview == golden == RTL
