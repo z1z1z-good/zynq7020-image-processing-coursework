@@ -84,7 +84,7 @@ fi
 
 echo "[8/8] full-resolution render + PNG reconstruct + per-config golden compare"
 "$VIV_BIN/xelab.bat" hdmi_bram_sobel_display_cosim_tb -s cosim_tb -timescale 1ns/1ps > xelab_cosim.log 2>&1
-while read -r tag mode thr ovl; do
+while read -r tag mode thr ovl shp; do
     [ -z "$tag" ] && continue
     cp -f "render_${tag}.hex" fb_in.hex
     "$VIV_BIN/xsim.bat" cosim_tb -runall > "xsim_cosim_${tag}.log" 2>&1

@@ -26,9 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* framebuffer 词数：图像区 128*72=9216 + 控制字到 0x9008（字索引 9218）-> 9219 个词。 */
+/* framebuffer 词数：图像区 128*72=9216 + 控制字到 0x900C（字索引 9219）-> 9220 个词。 */
 #define FB_IMG_WORDS (128 * 72)
-#define FB_WORDS     ((0x9008 / 4) + 1)   /* 9219 */
+#define FB_WORDS     ((0x900C / 4) + 1)   /* 9220（含锐化控制字 0x900C） */
 
 /* 主机侧接收状态 */
 static unsigned char     *g_stream = NULL;
@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 
     printf("PS_MODEL_DONE frames=%d ctrls=%d last_frame=%d last_ctrl=%d\n",
            frames, ctrls, last_frame_code, last_ctrl_code);
-    printf("PS_MODEL_CTRL mode=%u threshold=%u overlay=%u\n",
-           g_fb[0x9000 / 4], g_fb[0x9004 / 4], g_fb[0x9008 / 4]);
+    printf("PS_MODEL_CTRL mode=%u threshold=%u overlay=%u sharpen=%u\n",
+           g_fb[0x9000 / 4], g_fb[0x9004 / 4], g_fb[0x9008 / 4], g_fb[0x900C / 4]);
     return 0;
 }

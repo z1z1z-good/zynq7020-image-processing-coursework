@@ -36,21 +36,26 @@ SOBEL5_DIR = TOOLS_DIR.parent
 ZYNQ_DIR = SOBEL5_DIR.parent
 HOST_DIR = ZYNQ_DIR / "host_camera_uart"
 
-# 显示配置矩阵：覆盖四模式 + 三阈值（边缘模式）+ 叠加两种触发方式。
+# 显示配置矩阵：四模式 + 三阈值（边缘）+ 叠加两种触发 + 锐化四强度。元组 = (tag, mode, thr, ovl, sharpen)。
 RENDER_CONFIGS = [
-    ("orig", 0, 80, 0),      # 原图
-    ("gray", 1, 80, 0),      # 灰度
-    ("edge40", 2, 40, 0),    # 边缘 阈值 40
-    ("edge80", 2, 80, 0),    # 边缘 阈值 80
-    ("edge120", 2, 120, 0),  # 边缘 阈值 120
-    ("overlay", 3, 80, 0),   # 原图 + 红边（mode=3 触发）
-    ("ovlon", 0, 80, 1),     # 原图 + 红边（overlay_enable 触发）
+    ("orig", 0, 80, 0, 0),       # 原图
+    ("gray", 1, 80, 0, 0),       # 灰度
+    ("edge40", 2, 40, 0, 0),     # 边缘 阈值 40
+    ("edge80", 2, 80, 0, 0),     # 边缘 阈值 80
+    ("edge120", 2, 120, 0, 0),   # 边缘 阈值 120
+    ("overlay", 3, 80, 0, 0),    # 原图 + 红边（mode=3 触发）
+    ("ovlon", 0, 80, 1, 0),      # 原图 + 红边（overlay_enable 触发）
+    ("sharp0", 4, 80, 0, 0),     # 锐化 k=0（应逐像素等于原图）
+    ("sharp64", 4, 80, 0, 64),   # 锐化 k=64
+    ("sharp128", 4, 80, 0, 128), # 锐化 k=128
+    ("sharp255", 4, 80, 0, 255), # 锐化 k=255（强锐化 + 饱和裁剪）
 ]
 
-# PS 解析检查用的主配置：三个控制字都取与默认(2/80/0)不同的值。
+# PS 解析检查用的主配置：四个控制字都取与默认(2/80/0/0)不同的值。
 PRIMARY_MODE = 3      # overlay
 PRIMARY_THR = 40
 PRIMARY_OVL = 1
+PRIMARY_SHARPEN = 96
 
 
 def _load_generate():
@@ -120,18 +125,20 @@ def cmd_gen(args: argparse.Namespace) -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 真实图像帧 + 真实控制帧 -> 喂给真实 PS 模型。
-    (out_dir / "frame_stream.bin").write_bytes(real_img_stream + real_ctrl)
+    # 真实图像帧 + 真实控制帧(mode/thr/ovl) + 锐化控制帧(a5 5a 04 k) -> 喂给真实 PS 模型。
+    # 锐化控制帧用 golden 编码器生成（基础 host sender 暂无锐化命令，协议字节格式一致）。
+    sharpen_ctrl = g.encode_control_frame(g.CTRL_CMD_SHARPEN, PRIMARY_SHARPEN)
+    (out_dir / "frame_stream.bin").write_bytes(real_img_stream + real_ctrl + sharpen_ctrl)
     g.write_fb_hex(out_dir / "golden_image.hex", g.image_to_words(image))
     (out_dir / "expected_ctrl.txt").write_text(
-        f"{PRIMARY_MODE} {PRIMARY_THR} {PRIMARY_OVL}\n", encoding="ascii", newline="\n"
+        f"{PRIMARY_MODE} {PRIMARY_THR} {PRIMARY_OVL} {PRIMARY_SHARPEN}\n", encoding="ascii", newline="\n"
     )
 
     # 各显示配置的渲染 framebuffer（图像区 + 控制字）。
-    for tag, mode, thr, ovl in RENDER_CONFIGS:
-        g.write_fb_hex(out_dir / f"render_{tag}.hex", g.build_fb_words(image, mode, thr, ovl))
+    for tag, mode, thr, ovl, shp in RENDER_CONFIGS:
+        g.write_fb_hex(out_dir / f"render_{tag}.hex", g.build_fb_words(image, mode, thr, ovl, shp))
     (out_dir / "render_cases.txt").write_text(
-        "".join(f"{tag} {mode} {thr} {ovl}\n" for tag, mode, thr, ovl in RENDER_CONFIGS),
+        "".join(f"{tag} {mode} {thr} {ovl} {shp}\n" for tag, mode, thr, ovl, shp in RENDER_CONFIGS),
         encoding="ascii", newline="\n",
     )
 
@@ -166,7 +173,7 @@ def cmd_check_fb(args: argparse.Namespace) -> None:
     g = _load_generate()
     golden_image = _read_hex_words(Path(args.golden_image))
     actual = _read_hex_words(Path(args.actual))
-    mode, thr, ovl = (int(t) for t in Path(args.expected_ctrl).read_text().split())
+    mode, thr, ovl, shp = (int(t) for t in Path(args.expected_ctrl).read_text().split())
 
     if len(actual) < g.FB_WORDS:
         raise SystemExit(f"actual framebuffer too short: {len(actual)} < {g.FB_WORDS}")
@@ -181,24 +188,26 @@ def cmd_check_fb(args: argparse.Namespace) -> None:
             f"golden {golden_image[first] & 0xFFFFFF:06x} actual {actual[first] & 0xFFFFFF:06x}"
         )
 
-    # 控制字一致。
-    got = (actual[g.CTRL_MODE_WORD], actual[g.CTRL_THRESHOLD_WORD], actual[g.CTRL_OVERLAY_WORD])
-    if got != (mode, thr, ovl):
-        raise SystemExit(f"control words mismatch: expected {(mode, thr, ovl)} got {got}")
+    # 控制字一致（含锐化字 0x900C）。
+    got = (actual[g.CTRL_MODE_WORD], actual[g.CTRL_THRESHOLD_WORD],
+           actual[g.CTRL_OVERLAY_WORD], actual[g.CTRL_SHARPEN_WORD])
+    if got != (mode, thr, ovl, shp):
+        raise SystemExit(f"control words mismatch: expected {(mode, thr, ovl, shp)} got {got}")
 
-    print(f"EXP05_COSIM_FB=match image_words={g.PIXELS} ctrl=mode={mode},thr={thr},ovl={ovl}")
+    print(f"EXP05_COSIM_FB=match image_words={g.PIXELS} ctrl=mode={mode},thr={thr},ovl={ovl},sharpen={shp}")
 
 
 def cmd_render_compare(args: argparse.Namespace) -> None:
     g = _load_generate()
     fb = _read_hex_words(Path(args.fb_hex))
     image_words = fb[:g.PIXELS]
-    mode = fb[g.CTRL_MODE_WORD] & 0x03
+    mode = fb[g.CTRL_MODE_WORD] & 0x07
     threshold = fb[g.CTRL_THRESHOLD_WORD] & 0xFF
     overlay = 1 if fb[g.CTRL_OVERLAY_WORD] else 0
+    sharpen = fb[g.CTRL_SHARPEN_WORD] & 0xFF
 
     out_w, out_h = g.OUT_WIDTH, g.OUT_HEIGHT
-    golden_rows = g.render_expected_display(image_words, mode, threshold, overlay)
+    golden_rows = g.render_expected_display(image_words, mode, threshold, overlay, sharpen)
 
     capture = [tok for tok in Path(args.capture).read_text(encoding="ascii").split() if tok]
     expected_px = out_w * out_h
@@ -236,7 +245,7 @@ def cmd_render_compare(args: argparse.Namespace) -> None:
     if mismatches:
         raise SystemExit(f"rendered HDMI mismatch ({args.tag}): {mismatches} px differ, first @ {first_bad}")
     print(f"EXP05_COSIM_PNG_{args.tag}=match pixels={expected_px} corner_artifact={corner_artifact} "
-          f"mode={mode} thr={threshold} ovl={overlay}")
+          f"mode={mode} thr={threshold} ovl={overlay} sharpen={sharpen}")
 
 
 def main() -> None:

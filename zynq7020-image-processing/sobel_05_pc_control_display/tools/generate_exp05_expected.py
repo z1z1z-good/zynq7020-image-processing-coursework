@@ -40,21 +40,24 @@ CONTROL_SYNC = (0xA5, 0x5A)
 CTRL_CMD_MODE = 0x01
 CTRL_CMD_THRESHOLD = 0x02
 CTRL_CMD_OVERLAY = 0x03
+CTRL_CMD_SHARPEN = 0x04
 
 SCALE = 10
 OUT_WIDTH = WIDTH * SCALE        # 1280
 OUT_HEIGHT = HEIGHT * SCALE      # 720
 
-# Display modes (display_mode field, 2 bit).
+# Display modes (display_mode field, 3 bit after the sharpen extension).
 MODE_ORIGINAL = 0
 MODE_GRAY = 1
 MODE_EDGE = 2
 MODE_OVERLAY = 3
+MODE_SHARPEN = 4
 
 # Reset / power-on defaults (PL reset block and PS control_write_defaults()).
 DEFAULT_MODE = 2
 DEFAULT_THRESHOLD = 80
 DEFAULT_OVERLAY = 0
+DEFAULT_SHARPEN = 0
 
 OVERLAY_COLOR = (0xFF, 0x20, 0x20)   # fixed red edge overlay, matches RTL 24'hff2020
 THRESHOLDS = (40, 80, 120)
@@ -63,13 +66,15 @@ THRESHOLDS = (40, 80, 120)
 CTRL_MODE_ADDR = 0x9000
 CTRL_THRESHOLD_ADDR = 0x9004
 CTRL_OVERLAY_ADDR = 0x9008
+CTRL_SHARPEN_ADDR = 0x900C
 CTRL_MODE_WORD = CTRL_MODE_ADDR >> 2          # 9216
 CTRL_THRESHOLD_WORD = CTRL_THRESHOLD_ADDR >> 2  # 9217
 CTRL_OVERLAY_WORD = CTRL_OVERLAY_ADDR >> 2      # 9218
-FB_WORDS = CTRL_OVERLAY_WORD + 1                # 9219 (covers image area + 3 control words)
+CTRL_SHARPEN_WORD = CTRL_SHARPEN_ADDR >> 2      # 9219
+FB_WORDS = CTRL_SHARPEN_WORD + 1                # 9220 (image area + 4 control words)
 
 MODE_NAMES = {MODE_ORIGINAL: "original", MODE_GRAY: "gray",
-              MODE_EDGE: "edge", MODE_OVERLAY: "overlay"}
+              MODE_EDGE: "edge", MODE_OVERLAY: "overlay", MODE_SHARPEN: "sharpen"}
 MODE_FROM_NAME = {v: k for k, v in MODE_NAMES.items()}
 
 
@@ -240,11 +245,13 @@ def _handle_control_packet(stream, fb):
     if value is None:
         return -11
     if cmd == CTRL_CMD_MODE:
-        fb[CTRL_MODE_WORD] = value & 0x03
+        fb[CTRL_MODE_WORD] = value & 0x07
     elif cmd == CTRL_CMD_THRESHOLD:
         fb[CTRL_THRESHOLD_WORD] = value & 0xFF
     elif cmd == CTRL_CMD_OVERLAY:
         fb[CTRL_OVERLAY_WORD] = 1 if value else 0
+    elif cmd == CTRL_CMD_SHARPEN:
+        fb[CTRL_SHARPEN_WORD] = value & 0xFF
     else:
         return -12
     return 1
@@ -261,6 +268,7 @@ def dispatch_stream(data: bytes):
     fb[CTRL_MODE_WORD] = DEFAULT_MODE
     fb[CTRL_THRESHOLD_WORD] = DEFAULT_THRESHOLD
     fb[CTRL_OVERLAY_WORD] = DEFAULT_OVERLAY
+    fb[CTRL_SHARPEN_WORD] = DEFAULT_SHARPEN
     stream = ByteStream(data)
     events = []
     while True:
@@ -301,10 +309,30 @@ def sobel(gray: list[int]) -> list[int]:
     return edge
 
 
-def display_mux(rgb, edge, mode, threshold, overlay):
+def laplacian(gray: list[int]) -> list[int]:
+    """4-邻域拉普拉斯，匹配 sobel_core.v: lap = 4*center - up - down - left - right。
+
+    与 Sobel 共用同一 3x3 窗口与对齐（中心=mid1）。1 像素边界置 0，与 RTL 在边界/flush
+    阶段输出 lap=0 一致。返回的整数可正可负（范围约 [-1020, 1020]）。
+    """
+    lap = [0] * PIXELS
+    for y in range(1, HEIGHT - 1):
+        for x in range(1, WIDTH - 1):
+            c = y * WIDTH + x
+            lap[c] = (4 * gray[c]) - gray[c - WIDTH] - gray[c + WIDTH] - gray[c - 1] - gray[c + 1]
+    return lap
+
+
+def _clamp8(value: int) -> int:
+    return 0 if value < 0 else (255 if value > 255 else value)
+
+
+def display_mux(rgb, edge, mode, threshold, overlay, lap=None, sharpen=0):
     """Per-source-pixel HDMI colour, matching the hdmi_bram_sobel_display.v display mux.
 
-    rgb: list[(r,g,b)]; edge: list[int] (Sobel magnitude); returns list[(r,g,b)].
+    rgb: list[(r,g,b)]; edge: list[int] (Sobel magnitude); lap: list[int] (Laplacian,
+    required for MODE_SHARPEN); sharpen: 0..255 强度.  Returns list[(r,g,b)].
+    锐化逐通道: out = clamp(c + ((sharpen*lap) >> 8))；Python >> 与 RTL >>> 同为向下取整。
     """
     out = []
     overlay_active = bool(overlay) or (mode == MODE_OVERLAY)
@@ -315,6 +343,9 @@ def display_mux(rgb, edge, mode, threshold, overlay):
             base = (gray, gray, gray)
         elif mode == MODE_EDGE:
             base = (255, 255, 255) if edge_on else (0, 0, 0)
+        elif mode == MODE_SHARPEN:
+            delta = (sharpen * (lap[i] if lap is not None else 0)) >> 8
+            base = (_clamp8(r + delta), _clamp8(g + delta), _clamp8(b + delta))
         else:                       # MODE_ORIGINAL or MODE_OVERLAY -> original
             base = (r, g, b)
         if mode != MODE_EDGE and overlay_active and edge_on:
@@ -342,11 +373,13 @@ def render_rows(color_pixels):
     return rows
 
 
-def render_expected_display(framebuffer_words, mode, threshold, overlay):
+def render_expected_display(framebuffer_words, mode, threshold, overlay, sharpen=0):
     """Full PL chain for one control config -> expected 1280x720 rows."""
     rgb = words_to_rgb(framebuffer_words)
-    edge = sobel(rgb_to_gray(rgb))
-    return render_rows(display_mux(rgb, edge, mode, threshold, overlay))
+    gray = rgb_to_gray(rgb)
+    edge = sobel(gray)
+    lap = laplacian(gray)
+    return render_rows(display_mux(rgb, edge, mode, threshold, overlay, lap, sharpen))
 
 
 # --------------------------- PNG writers (struct + zlib, std lib only) ---------------------------
@@ -401,12 +434,13 @@ def image_to_words(image) -> list[int]:
     return [(r << 16) | (g << 8) | b for (r, g, b) in image]
 
 
-def build_fb_words(image, mode, threshold, overlay) -> list[int]:
-    """Image area words + the three control words at 9216/9217/9218 -> FB_WORDS list."""
+def build_fb_words(image, mode, threshold, overlay, sharpen=0) -> list[int]:
+    """Image area words + the four control words at 9216..9219 -> FB_WORDS list."""
     words = image_to_words(image) + [0] * (FB_WORDS - PIXELS)
-    words[CTRL_MODE_WORD] = mode & 0x03
+    words[CTRL_MODE_WORD] = mode & 0x07
     words[CTRL_THRESHOLD_WORD] = threshold & 0xFF
     words[CTRL_OVERLAY_WORD] = 1 if overlay else 0
+    words[CTRL_SHARPEN_WORD] = sharpen & 0xFF
     return words
 
 
@@ -439,6 +473,12 @@ def main() -> None:
     assert encode_control_frame(CTRL_CMD_MODE, MODE_EDGE) == bytes((0xA5, 0x5A, 0x01, 0x02))
     assert encode_control_frame(CTRL_CMD_THRESHOLD, 120) == bytes((0xA5, 0x5A, 0x02, 0x78))
     assert encode_control_frame(CTRL_CMD_OVERLAY, 1) == bytes((0xA5, 0x5A, 0x03, 0x01))
+    assert encode_control_frame(CTRL_CMD_SHARPEN, 96) == bytes((0xA5, 0x5A, 0x04, 0x60))
+
+    # 2b. 锐化控制帧分发：a5 5a 04 k -> 控制字 0x900C = k（经真实分发模型 dispatch_stream）。
+    sharp_fb, sharp_ev = dispatch_stream(encode_control_frame(CTRL_CMD_SHARPEN, 200))
+    if sharp_ev != [("ctrl", 1)] or sharp_fb[CTRL_SHARPEN_WORD] != 200:
+        raise SystemExit(f"sharpen dispatch failed: events={sharp_ev} word={sharp_fb[CTRL_SHARPEN_WORD]}")
 
     # 3. Error injection: codes must match receive_frame_body / handle_control_packet.
     cases = [
@@ -480,6 +520,11 @@ def main() -> None:
     write_gray_png(args.evidence_dir / "exp05_edge_strength.png", OUT_WIDTH, OUT_HEIGHT,
                    scale_gray_10x(edge))
 
+    # 锐化扩展（任务3 B档）：同一图像在不同锐化强度下的期望显示（k=0 即原图，k 越大越锐）。
+    for k in (0, 64, 128, 255):
+        write_rgb_png(args.evidence_dir / f"exp05_mode_sharpen_k{k}.png", OUT_WIDTH, OUT_HEIGHT,
+                      render_expected_display(fb_words, MODE_SHARPEN, DEFAULT_THRESHOLD, 0, sharpen=k))
+
     # 7. 40/80/120 edge threshold images (edge mode) + monotonic edge-pixel-count stats.
     counts = []
     for threshold in THRESHOLDS:
@@ -494,6 +539,17 @@ def main() -> None:
     # 8. Overlay-on vs overlay-off pixel deltas (overlay paints red over non-edge modes).
     overlay_red = sum(1 for px in display_mux(words_to_rgb(fb_words), edge, MODE_ORIGINAL, DEFAULT_THRESHOLD, 1)
                       if px == OVERLAY_COLOR)
+
+    # 8b. 锐化 golden（任务3 B档）：k=0 必须逐像素等于原图；k>0 确有像素被改变。
+    lap = laplacian(gray)
+    orig_px = words_to_rgb(fb_words)
+    sharpen_k0 = display_mux(orig_px, edge, MODE_SHARPEN, DEFAULT_THRESHOLD, 0, lap, 0)
+    if sharpen_k0 != orig_px:
+        raise SystemExit("sharpen k=0 must reproduce the original image exactly")
+    sharpen_k128 = display_mux(orig_px, edge, MODE_SHARPEN, DEFAULT_THRESHOLD, 0, lap, 128)
+    sharpen_changed = sum(1 for a, b in zip(sharpen_k128, orig_px) if a != b)
+    if sharpen_changed == 0:
+        raise SystemExit("sharpen k=128 changed no pixels (expected visible sharpening)")
 
     stats = [
         "实验 5 显示控制阈值与边缘像素统计",
@@ -542,6 +598,8 @@ def main() -> None:
         print(f"EXP05_EDGE_PIXELS_{t}={c}")
     print(f"EXP05_OVERLAY_RED_PIXELS={overlay_red}")
     print("EXP05_THRESHOLD_MONOTONIC=passed")
+    print(f"EXP05_SHARPEN_CHANGED_128={sharpen_changed}")
+    print("EXP05_SHARPEN_CONTROL=passed")
     print("EXP05_SELFCHECK=passed")
 
 
