@@ -35,11 +35,13 @@ localparam SCALE_Y = V_ACTIVE / IMG_HEIGHT;
 localparam CTRL_MODE_ADDR      = 32'h0000_9000;
 localparam CTRL_THRESHOLD_ADDR = 32'h0000_9004;
 localparam CTRL_OVERLAY_ADDR   = 32'h0000_9008;
+localparam CTRL_SHARPEN_ADDR   = 32'h0000_900C;
 
-localparam MODE_ORIGINAL = 2'd0;
-localparam MODE_GRAY     = 2'd1;
-localparam MODE_EDGE     = 2'd2;
-localparam MODE_OVERLAY  = 2'd3;
+localparam MODE_ORIGINAL = 3'd0;
+localparam MODE_GRAY     = 3'd1;
+localparam MODE_EDGE     = 3'd2;
+localparam MODE_OVERLAY  = 3'd3;
+localparam MODE_SHARPEN  = 3'd4;
 
 localparam SCAN_IDLE              = 4'd0;
 localparam SCAN_CTRL_MODE_REQ     = 4'd1;
@@ -51,8 +53,11 @@ localparam SCAN_CTRL_THR_WAIT2    = 4'd6;
 localparam SCAN_CTRL_OVL_REQ      = 4'd7;
 localparam SCAN_CTRL_OVL_WAIT1    = 4'd8;
 localparam SCAN_CTRL_OVL_WAIT2    = 4'd9;
-localparam SCAN_RUN               = 4'd10;
-localparam SCAN_WAIT              = 4'd11;
+localparam SCAN_CTRL_SHP_REQ      = 4'd10;
+localparam SCAN_CTRL_SHP_WAIT1    = 4'd11;
+localparam SCAN_CTRL_SHP_WAIT2    = 4'd12;
+localparam SCAN_RUN               = 4'd13;
+localparam SCAN_WAIT              = 4'd14;
 
 reg [11:0] h_cnt;
 reg [11:0] v_cnt;
@@ -65,6 +70,7 @@ reg de_reg_d0;
 reg [13:0] display_rd_addr;
 reg [7:0] edge_pixel;
 reg [23:0] rgb_pixel;
+reg signed [12:0] lap_pixel;
 
 reg [3:0] scan_state;
 reg [6:0] scan_x;
@@ -79,12 +85,14 @@ reg [6:0] scan_y_d2;
 reg scan_frame_start;
 reg sobel_done;
 
-reg [1:0] display_mode;
+reg [2:0] display_mode;
 reg [7:0] threshold;
 reg overlay_enable;
+reg [7:0] sharpen_strength;
 
 (* ram_style = "block" *) reg [23:0] rgb_mem [0:9215];
 (* ram_style = "block" *) reg [7:0] edge_mem [0:9215];
+(* ram_style = "block" *) reg signed [12:0] lap_mem [0:9215];
 
 wire h_active;
 wire v_active;
@@ -109,6 +117,7 @@ wire [15:0] gray_x;
 wire [15:0] gray_y;
 wire edge_valid;
 wire [7:0] edge_data;
+wire signed [12:0] lap_data;
 wire [15:0] edge_x;
 wire [15:0] edge_y;
 wire edge_frame_done;
@@ -121,6 +130,24 @@ wire overlay_active;
 reg [7:0] out_r;
 reg [7:0] out_g;
 reg [7:0] out_b;
+
+// 锐化（unsharp / 拉普拉斯增强）：delta = (strength * lap) >>> 8，逐通道 out = clamp(rgb + delta, 0, 255)。
+// strength 每帧从控制字 0x900C 读入，故拖动 GUI 强度滑块即可实时改变锐化程度，无需重发图像帧。
+// 算术右移 >>> 8 与软件 golden 的 (k*lap)>>8（向下取整）逐位一致。
+wire signed [21:0] sharp_prod  = $signed({1'b0, sharpen_strength}) * lap_pixel;
+wire signed [13:0] sharp_delta = sharp_prod >>> 8;
+
+function [7:0] sharp_clamp;
+    input signed [15:0] value;
+    begin
+        if (value < 16'sd0)
+            sharp_clamp = 8'd0;
+        else if (value > 16'sd255)
+            sharp_clamp = 8'd255;
+        else
+            sharp_clamp = value[7:0];
+    end
+endfunction
 
 assign h_active = (h_cnt >= H_START[11:0]) && (h_cnt < (H_START + H_ACTIVE));
 assign v_active = (v_cnt >= V_START[11:0]) && (v_cnt < (V_START + V_ACTIVE));
@@ -140,7 +167,7 @@ assign scan_word_addr = {scan_y, 7'b0} + {7'd0, scan_x};
 assign scan_store_addr = {scan_y_d2, 7'b0} + {7'd0, scan_x_d2};
 assign scan_issue = (scan_state == SCAN_RUN);
 assign scan_last = (scan_x == 7'd127) && (scan_y == 7'd71);
-assign ctrl_read_active = (scan_state >= SCAN_CTRL_MODE_REQ) && (scan_state <= SCAN_CTRL_OVL_WAIT2);
+assign ctrl_read_active = (scan_state >= SCAN_CTRL_MODE_REQ) && (scan_state <= SCAN_CTRL_SHP_WAIT2);
 assign edge_wr_addr = {edge_y[6:0], 7'b0} + {7'd0, edge_x[6:0]};
 
 assign hs = hs_reg_d0;
@@ -177,6 +204,12 @@ always @(*) begin
             out_r = edge_on ? 8'hff : 8'h00;
             out_g = edge_on ? 8'hff : 8'h00;
             out_b = edge_on ? 8'hff : 8'h00;
+        end
+
+        MODE_SHARPEN: begin
+            out_r = sharp_clamp($signed({8'd0, rgb_pixel[23:16]}) + sharp_delta);
+            out_g = sharp_clamp($signed({8'd0, rgb_pixel[15:8]})  + sharp_delta);
+            out_b = sharp_clamp($signed({8'd0, rgb_pixel[7:0]})   + sharp_delta);
         end
 
         default: begin
@@ -221,6 +254,7 @@ sobel_core #(
     .gray_y(gray_y),
     .edge_valid(edge_valid),
     .edge_data(edge_data),
+    .lap_data(lap_data),
     .edge_x(edge_x),
     .edge_y(edge_y),
     .edge_frame_done(edge_frame_done)
@@ -259,6 +293,7 @@ always @(posedge clk) begin
         display_rd_addr <= 14'd0;
         edge_pixel <= 8'd0;
         rgb_pixel <= 24'd0;
+        lap_pixel <= 13'sd0;
     end else begin
         hs_reg <= hsync_now;
         vs_reg <= vsync_now;
@@ -269,6 +304,7 @@ always @(posedge clk) begin
         display_rd_addr <= video_active ? disp_addr : 14'd0;
         edge_pixel <= edge_mem[display_rd_addr];
         rgb_pixel <= rgb_mem[display_rd_addr];
+        lap_pixel <= lap_mem[display_rd_addr];
     end
 end
 
@@ -290,6 +326,7 @@ always @(posedge clk) begin
         display_mode <= MODE_EDGE;
         threshold <= 8'd80;
         overlay_enable <= 1'b0;
+        sharpen_strength <= 8'd0;
     end else begin
         scan_frame_start <= 1'b0;
 
@@ -325,7 +362,7 @@ always @(posedge clk) begin
             end
 
             SCAN_CTRL_MODE_WAIT2: begin
-                display_mode <= bram_dout[1:0];
+                display_mode <= bram_dout[2:0];
                 scan_state <= SCAN_CTRL_THR_REQ;
             end
 
@@ -354,6 +391,20 @@ always @(posedge clk) begin
 
             SCAN_CTRL_OVL_WAIT2: begin
                 overlay_enable <= bram_dout[0];
+                scan_state <= SCAN_CTRL_SHP_REQ;
+            end
+
+            SCAN_CTRL_SHP_REQ: begin
+                bram_addr_reg <= CTRL_SHARPEN_ADDR;
+                scan_state <= SCAN_CTRL_SHP_WAIT1;
+            end
+
+            SCAN_CTRL_SHP_WAIT1: begin
+                scan_state <= SCAN_CTRL_SHP_WAIT2;
+            end
+
+            SCAN_CTRL_SHP_WAIT2: begin
+                sharpen_strength <= bram_dout[7:0];
                 scan_state <= SCAN_RUN;
                 scan_frame_start <= 1'b1;
             end
@@ -392,6 +443,7 @@ always @(posedge clk) begin
 
     if (edge_valid) begin
         edge_mem[edge_wr_addr] <= edge_data;
+        lap_mem[edge_wr_addr] <= lap_data;
     end
 end
 

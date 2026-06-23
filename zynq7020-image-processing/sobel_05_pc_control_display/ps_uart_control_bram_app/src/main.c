@@ -21,6 +21,7 @@
 #define CTRL_CMD_MODE    0x01U
 #define CTRL_CMD_THRESH  0x02U
 #define CTRL_CMD_OVERLAY 0x03U
+#define CTRL_CMD_SHARPEN 0x04U
 
 #ifndef UART_DEVICE_ID
 #if defined(XPAR_PS7_UART_1_DEVICE_ID)
@@ -47,11 +48,13 @@
 #define CTRL_MODE_ADDR      (FRAMEBUFFER_BASEADDR + 0x9000U)
 #define CTRL_THRESHOLD_ADDR (FRAMEBUFFER_BASEADDR + 0x9004U)
 #define CTRL_OVERLAY_ADDR   (FRAMEBUFFER_BASEADDR + 0x9008U)
+#define CTRL_SHARPEN_ADDR   (FRAMEBUFFER_BASEADDR + 0x900CU)
 
 static XUartPs UartInst;
 static u8 display_mode = 2U;
 static u8 threshold_value = 80U;
 static u8 overlay_enable = 0U;
+static u8 sharpen_strength = 0U;
 
 static int uart_recv_byte_timeout(u8 *byte_value, u32 timeout_ms)
 {
@@ -98,14 +101,16 @@ static void control_write_defaults(void)
     Xil_Out32(CTRL_MODE_ADDR, (u32)display_mode);
     Xil_Out32(CTRL_THRESHOLD_ADDR, (u32)threshold_value);
     Xil_Out32(CTRL_OVERLAY_ADDR, (u32)overlay_enable);
+    Xil_Out32(CTRL_SHARPEN_ADDR, (u32)sharpen_strength);
 }
 
 static void control_print_state(void)
 {
-    xil_printf("control: mode=%d threshold=%d overlay=%d\r\n",
+    xil_printf("control: mode=%d threshold=%d overlay=%d sharpen=%d\r\n",
                (u32)display_mode,
                (u32)threshold_value,
-               (u32)overlay_enable);
+               (u32)overlay_enable,
+               (u32)sharpen_strength);
 }
 
 static int handle_control_packet(void)
@@ -122,7 +127,7 @@ static int handle_control_packet(void)
 
     switch (cmd) {
     case CTRL_CMD_MODE:
-        display_mode = value & 0x03U;
+        display_mode = value & 0x07U;
         Xil_Out32(CTRL_MODE_ADDR, (u32)display_mode);
         break;
 
@@ -134,6 +139,11 @@ static int handle_control_packet(void)
     case CTRL_CMD_OVERLAY:
         overlay_enable = value ? 1U : 0U;
         Xil_Out32(CTRL_OVERLAY_ADDR, (u32)overlay_enable);
+        break;
+
+    case CTRL_CMD_SHARPEN:
+        sharpen_strength = value;
+        Xil_Out32(CTRL_SHARPEN_ADDR, (u32)sharpen_strength);
         break;
 
     default:
@@ -313,7 +323,7 @@ int main(void)
                (u32)UART_BAUD_RATE,
                (u32)IMG_WIDTH,
                (u32)IMG_HEIGHT);
-    xil_printf("control frame: a5 5a cmd value, cmd 1=mode 2=threshold 3=overlay\r\n");
+    xil_printf("control frame: a5 5a cmd value, cmd 1=mode 2=threshold 3=overlay 4=sharpen\r\n");
 
     fill_test_pattern();
     control_write_defaults();

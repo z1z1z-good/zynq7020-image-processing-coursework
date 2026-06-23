@@ -13,6 +13,7 @@ module sobel_core #(
     input  wire [15:0] gray_y,
     output reg         edge_valid,
     output reg [7:0]   edge_data,
+    output reg signed [12:0] lap_data,
     output reg [15:0]  edge_x,
     output reg [15:0]  edge_y,
     output reg         edge_frame_done
@@ -38,6 +39,7 @@ module sobel_core #(
     reg [11:0] abs_gx;
     reg [11:0] abs_gy;
     reg [12:0] mag;
+    reg signed [12:0] lap_calc;
     reg [15:0] out_x;
     reg [15:0] out_y;
     reg        flush_active;
@@ -51,6 +53,7 @@ module sobel_core #(
         if (!rst_n) begin
             edge_valid      <= 1'b0;
             edge_data       <= 8'd0;
+            lap_data        <= 13'sd0;
             edge_x          <= 16'd0;
             edge_y          <= 16'd0;
             edge_frame_done <= 1'b0;
@@ -109,6 +112,7 @@ module sobel_core #(
             if (flush_active) begin
                 edge_valid <= 1'b1;
                 edge_data  <= 8'd0;
+                lap_data   <= 13'sd0;
                 edge_x     <= flush_x;
                 edge_y     <= flush_y;
 
@@ -161,7 +165,15 @@ module sobel_core #(
                     abs_gy = gy[11] ? (~gy + 12'd1) : gy;
                     mag = abs_gx + abs_gy;
 
+                    // 4-邻域拉普拉斯（与 Sobel 共用同一已验证 3x3 窗口，中心像素 = mid1）：
+                    //   lap = 4*center - up - down - left - right
+                    //       = 4*mid1  - top1 - bot1 - mid0  - mid2
+                    lap_calc = ($signed({5'd0, mid1}) <<< 2)
+                               - $signed({5'd0, top1}) - $signed({5'd0, bot1})
+                               - $signed({5'd0, mid0}) - $signed({5'd0, mid2});
+
                     edge_data  <= (mag > 13'd255) ? 8'hff : mag[7:0];
+                    lap_data   <= lap_calc;
                     edge_x     <= out_x;
                     edge_y     <= out_y;
                     edge_valid <= 1'b1;
@@ -171,6 +183,7 @@ module sobel_core #(
                     ((out_x == 16'd0) || (out_y == 16'd0) ||
                      (out_x == WIDTH - 1) || (out_y == HEIGHT - 1))) begin
                     edge_data  <= 8'd0;
+                    lap_data   <= 13'sd0;
                     edge_x     <= out_x;
                     edge_y     <= out_y;
                     edge_valid <= 1'b1;
