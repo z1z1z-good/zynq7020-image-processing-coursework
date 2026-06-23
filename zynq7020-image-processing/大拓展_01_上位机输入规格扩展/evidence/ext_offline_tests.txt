@@ -1,0 +1,34 @@
+exp5 scaling extension - offline test log
+updated: 2026-06-23   branch: exp/05-ext-scaling
+run: set PYTHONDONTWRITEBYTECODE=1 && python tests/test_prepare_frame.py
+     set PYTHONDONTWRITEBYTECODE=1 && python tests/test_protocol_invariants.py
+board / serial / camera: NOT used -- offline verification only
+
+########## tests/test_prepare_frame.py  (real cv2 + numpy) ##########
+PASS test_center_crop_is_centered
+PASS test_center_crop_no_black_border
+PASS test_content_size_is_coarser_and_valid
+PASS test_letterbox_aspect_and_fill
+PASS test_packet_invariants_all_modes_sizes
+PASS test_proc_size_choices_cover_c_grade_reference_sizes
+PASS test_shapes_all_modes_all_sizes
+PASS test_stretch_matches_legacy_resize
+
+8/8 passed
+
+########## tests/test_protocol_invariants.py  (methodology s3.1 cv2/serial stub) ##########
+PASS test_build_frame_packet_len_and_header
+PASS test_packing_runs_without_real_opencv
+PASS test_send_control_command_bytes
+PASS test_send_requested_controls_sequence
+
+4/4 passed
+
+summary: 12/12 offline assertions passed.
+C-grade size coverage: --proc-size includes 128x72, 160x90 and 144x108; 64x36 is kept for coarse processing comparison.
+invariants held for every fit mode x original size x proc size (see ext_scaling_matrix.txt):
+  - prepare_frame output shape (72, 128, 3), dtype uint8
+  - build_frame_packet length 27943 bytes
+  - frame header 55 aa 80 00 48 00 18
+  - send_control_command -> A5 5A cmd value (e.g. A5 5A 01 03)
+status: host offline verification passed; on-site board demo still should show at least three proc-size choices.

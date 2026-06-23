@@ -1,0 +1,53 @@
+usage: camera_uart_sender.py [-h] --port PORT [--baud BAUD] [--camera CAMERA]
+                             [--fps FPS] [--width WIDTH] [--height HEIGHT]
+                             [--fit-mode {stretch,letterbox,center-crop}]
+                             [--proc-size {128x72,160x90,144x108,64x36}]
+                             [--fill-color FILL_COLOR] [--image IMAGE]
+                             [--images IMAGES [IMAGES ...]]
+                             [--image-dir IMAGE_DIR] [--video VIDEO] [--loop]
+                             [--once] [--preview] [--flip]
+                             [--line-delay LINE_DELAY]
+                             [--mode {original,gray,edge,overlay}]
+                             [--threshold THRESHOLD] [--overlay {off,on}]
+                             [--control-only]
+
+Resize camera/image/video frames to RGB888 and send them to ZYNQ PS UART.
+
+options:
+  -h, --help            show this help message and exit
+  --port PORT           Serial port, for example COM5 or /dev/ttyUSB0
+  --baud BAUD           UART baud rate
+  --camera CAMERA       OpenCV camera index
+  --fps FPS             Send frame rate
+  --width WIDTH         Output image width
+  --height HEIGHT       Output image height
+  --fit-mode {stretch,letterbox,center-crop}
+                        How any-size input is fitted into the fixed output
+                        frame (stretch=resize, letterbox=pad, center-
+                        crop=crop)
+  --proc-size {128x72,160x90,144x108,64x36}
+                        Host processing resolution; non-128x72 choices are
+                        mapped back into the fixed output size before
+                        transmission
+  --fill-color FILL_COLOR
+                        Letterbox padding colour as 'R,G,B' (0..255 each);
+                        default black
+  --image IMAGE         Send one image file instead of reading the camera
+  --images IMAGES [IMAGES ...]
+                        Send several image files in the given order
+  --image-dir IMAGE_DIR
+                        Send all supported images in one directory, sorted by
+                        file name
+  --video VIDEO         Send frames from a video file such as MP4
+  --loop                Loop image sequence or video after reaching the end
+  --once                Send one frame and exit
+  --preview             Show a local preview window
+  --flip                Horizontally flip the camera/image/video frame
+  --line-delay LINE_DELAY
+                        Delay after each line, in seconds
+  --mode {original,gray,edge,overlay}
+                        sobel_05 display mode control command
+  --threshold THRESHOLD
+                        sobel_05 threshold control command, 0..255
+  --overlay {off,on}    sobel_05 color edge overlay control command
+  --control-only        Send only sobel_05 control commands and exit

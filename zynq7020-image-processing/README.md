@@ -12,6 +12,7 @@
 | [`coursework/docs/README.md`](coursework/docs/README.md) | 无板开发计划、协同仿真方法、历史进度日志和报告材料 |
 | [`coursework/evidence/README.md`](coursework/evidence/README.md) | 仿真、构建、上板和最终演示证据 |
 | [`host_camera_uart/README.md`](host_camera_uart/README.md) | PC 端图像发送和实验 5 控制工具 |
+| [`大拓展_01_上位机输入规格扩展/README.md`](大拓展_01_上位机输入规格扩展/README.md) | 第二周综合大拓展独立交付目录 |
 
 ## 1. 课程设计目标
 
@@ -64,7 +65,8 @@ zynq7020-image-processing/
 ├── sobel_02_hdmi_sobel/              实验 2：HDMI + Sobel 固定图片显示
 ├── sobel_03_uart_hdmi/               实验 3：UART 传图 + HDMI 原图显示
 ├── sobel_04_uart_sobel_hdmi/         实验 4：UART 传图 + PL Sobel + HDMI 显示
-└── sobel_05_pc_control_display/      实验 5：上位机控制 HDMI 显示模式
+├── sobel_05_pc_control_display/      实验 5：上位机控制 HDMI 显示模式
+└── 大拓展_01_上位机输入规格扩展/     第二周综合大拓展：上位机输入规格扩展
 ```
 
 每个实验目录的 README 应包含：
