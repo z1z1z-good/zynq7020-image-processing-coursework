@@ -155,3 +155,6 @@ zynq7020-image-processing/sobel_04_uart_sobel_hdmi/clockInfo.txt
 zynq7020-image-processing/coursework/evidence/**/*.tmp
 zynq7020-image-processing/coursework/evidence/**/*.bak
 zynq7020-image-processing/sobel_05_pc_control_display/build/
+
+# ModelSim session output
+**/transcript
