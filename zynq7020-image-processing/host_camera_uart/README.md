@@ -160,7 +160,10 @@ Loop file input = 多图或视频需要循环播放时勾选
 | Image sequence | 使用多张本地图片作为输入源，按选择顺序发送。 |
 | Video file | 使用 MP4、AVI、MOV、MKV 或 WMV 视频文件作为输入源。 |
 | Browse | 根据当前输入源选择单张图片、多张图片或视频文件。 |
+| Folder | 在 Image sequence 模式下选择一个图片目录，按文件名排序发送目录内全部支持的图片（实验五扩展）。 |
 | Width / Height | 发送给开发板的图像分辨率，当前 PS 程序默认只接收 `128x72`。 |
+| Fit mode | 任意尺寸输入进固定帧的方式：`stretch` 拉伸 / `letterbox` 等比补边 / `center-crop` 等比裁剪（实验五扩展，详见第 14 节）。 |
+| Proc size | 目标处理尺寸：`128x72`（满幅）或 `64x36`（更粗，仍发送 `128x72`）（实验五扩展）。 |
 | FPS | 发送帧率，`115200` 波特率下建议 `0.2` 或更低。 |
 | Line delay | 每发送一行后的延时，画面不稳定时可设为 `0.001`。 |
 | Flip camera | 摄像头画面左右翻转。 |
@@ -529,3 +532,77 @@ Windows 隐私设置是否允许桌面应用访问摄像头
 4. 选择 COM 口和默认参数。
 5. 使用图片模式发送单帧，确认 HDMI 能显示。
 6. 再切换到摄像头模式连续发送。
+
+## 14. 输入缩放策略扩展（实验五综合扩展任务 1）
+
+本节是 `sobel_05` 第二周综合扩展任务 1（上位机与输入规格扩展）的上位机实现，向前兼容
+`sobel_03/04/05`：不发新参数时行为与原工具一致。
+
+### 14.1 设计选择：方案 A —— 上位机统一缩放到固定 `128×72`
+
+不同尺寸、不同宽高比的输入图像，全部在上位机经一个公共函数 `prepare_frame()` 统一缩放为固定
+`128×72 RGB888` 再发送。发送协议保持不变（帧头 `55 aa 80 00 48 00 18`、整帧 `27943` 字节、
+控制帧 `A5 5A cmd value`），因此 **PS 接收、BRAM 地址、PL 扫描、HDMI 放大、Sobel 尺寸都无需修改**，
+风险最低。CLI 与 GUI 共用同一个 `prepare_frame()`，不存在两套缩放代码。
+
+> 另一条路线是修改 PS/PL 支持新的固定尺寸（需同步改 BRAM 地址、图像宽高、HDMI 放大与仿真），
+> 属高风险硬件改动，本扩展不采用。
+
+### 14.2 三种 Fit 策略（`--fit-mode` / GUI 的 Fit mode）
+
+设输入为 `w×h`，固定输出为 `W×H = 128×72`：
+
+```text
+stretch      直接 cv2.resize 到 128x72，可能改变宽高比（默认；缩小时与旧工具逐字节一致）
+letterbox    等比缩放 s=min(W/w, H/h)，居中放置，空白区补 fill 色，主体不变形
+center-crop  等比放大 s=max(W/w, H/h)，居中裁剪到 128x72，铺满无黑边
+```
+
+缩小用 `INTER_AREA`、放大用 `INTER_LINEAR`，最后统一 `BGR->RGB`。`--fill-color R,G,B`（0..255）
+指定 letterbox 的补边颜色，默认黑色。
+
+### 14.3 目标处理尺寸（`--proc-size` / GUI 的 Proc size）
+
+```text
+128x72   满幅处理（默认）
+64x36    先把内容处理到 64x36，再最近邻放回固定 128x72 帧；HDMI 上画面更粗
+```
+
+这满足课设“至少 1 种新的处理尺寸”的要求；无论选哪种，**发送给 FPGA 的帧恒为 `128×72`**。
+
+### 14.4 命令示例
+
+```bash
+# 同一张图片，三种策略对比（注意 letterbox 补边、center-crop 裁剪、stretch 变形）
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --fit-mode stretch
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --fit-mode letterbox
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --fit-mode center-crop
+
+# letterbox 指定白色补边
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --fit-mode letterbox --fill-color 255,255,255
+
+# 目标处理尺寸对比（128x72 满幅 vs 64x36 更粗）
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --proc-size 128x72
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --proc-size 64x36
+
+# 图片目录作为输入来源，letterbox 处理
+python camera_uart_sender.py --port COM7 --image-dir .\frames --fit-mode letterbox --fps 0.2
+
+# 扩展不影响 sobel_05 控制命令
+python camera_uart_sender.py --port COM7 --image pic.jpg --once --fit-mode letterbox --mode edge --threshold 80
+```
+
+GUI 等价操作：Input source 的 `Image sequence` 行新增 `Folder` 按钮可选图片目录；Frame settings 新增
+`Fit mode` 与 `Proc size` 下拉；预览区显示与发送完全一致的处理结果。
+
+### 14.5 离线自测
+
+`tests/` 目录提供纯标准库断言测试（也兼容 pytest），不接板即可验证：
+
+```bash
+set PYTHONUTF8=1
+python tests/test_prepare_frame.py          # 形状/宽高比/无黑边/回归/处理尺寸
+python tests/test_protocol_invariants.py    # 27943 字节 / 帧头 / 控制字节不变量
+```
+
+证据与对比图见 `coursework/evidence/07_ext_scaling/`。

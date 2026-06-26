@@ -1,0 +1,31 @@
+scaling matrix (offline, prepare_frame -> build_frame_packet)
+transmit frame fixed at 128x72 RGB888; FPGA/PS/PL unchanged (Plan A)
+
+640x480  stretch      proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+640x480  stretch      proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+640x480  letterbox    proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+640x480  letterbox    proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+640x480  center-crop  proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+640x480  center-crop  proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 stretch      proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 stretch      proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 letterbox    proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 letterbox    proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 center-crop  proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1920x1080 center-crop  proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 stretch      proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 stretch      proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 letterbox    proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 letterbox    proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 center-crop  proc 128x72 -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+1080x1920 center-crop  proc 64x36  -> shape (72, 128, 3) uint8 | packet 27943B | header 55 aa 80 00 48 00 18 | OK
+
+letterbox geometry check (solid-white subject, red fill 255,0,0):
+  640x480  -> subject box 96x72 (aspect 1.333 vs src 1.333), fill pixels 2304
+  1920x1080 -> subject box 128x72 (aspect 1.778 vs src 1.778), fill pixels 0
+  1080x1920 -> subject box 40x72 (aspect 0.556 vs src 0.562), fill pixels 6336
+
+center-crop no-border check (solid grey 200 subject):
+  640x480  -> min 200 max 200 (no padding introduced)
+  1920x1080 -> min 200 max 200 (no padding introduced)
+  1080x1920 -> min 200 max 200 (no padding introduced)
